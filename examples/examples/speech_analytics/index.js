@@ -40,9 +40,8 @@ const runSpeechAnalytics = async (request, ctx) => {
                 waitingOnTranscript = false;
                 transcriptUri = transcription.uri
             case "FAILED":
-                // Send the workflow to a failed state. This causes the workflow to exit.
-                fail();
-                // note: this should return something and exit the function
+                // Throw an exception (permanently errors out the workflow).
+                throw "Transcription failed";
             case "IN_PROGRESS":
                 // Sleep the workflow for 60 seconds before trying again
                 sleep(60, TimeUnit.SECONDS);
@@ -65,10 +64,9 @@ const runSpeechAnalytics = async (request, ctx) => {
     const result = await buildResult(segments, sentiments);
 
     // Upload the result.
-    await uploadResult(result);
+    const uploadResponse = await uploadResult(result);
 
-    // Send the workflow to a success state.
-    succeed();
+    return uploadResponse;
 }
 
 // Register the activities and the workflow with Sahale.
