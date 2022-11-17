@@ -10,7 +10,7 @@
     Audio transcription is a long-running and failure-prone process.
 */
 
-import { Sahale, sleep, succeed, fail } from 'sahale';
+import { Sahale, sleep, succeed, fail, WorkflowClient } from 'sahale';
 import startTranscription from 'startTranscription';
 import getTranscription from 'getTranscription';
 import getSegments from 'getSegments';
@@ -82,3 +82,21 @@ app.registerWorkflow(runSpeechAnalytics);
 
 // Start the application in the Sahale cloud and start listening for triggers.
 app.start();
+
+// Start a workflow execution
+// Connect to the Sahale server location
+const connection = await Connection.connect();
+
+const client = new WorkflowClient({connection});
+
+const handle = await client.start(runSpeechAnalytics, {
+    args: {
+        'audioFileUri': 'https://my_bucket_prefix/my_audio_file.mp4',
+        'numSegments': 5
+    },
+    taskQueue: 'speech-analytics'
+});
+console.log(`Started workflow ${handle.workflowId}`);
+
+// optional: wait for client result
+console.log(await handle.result()); // SUCCESS, myAnalyticsJSONUri
