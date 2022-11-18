@@ -20,7 +20,7 @@ import uploadResult from 'uploadResult';
 
 // This code that describes the workflow logic.
 // The workflow logic is hosted serverlessly by Sahale.
-// Each step in the workflow is a function that gets automatically built as its own container and hosted serverlessly by Sahale. 
+// Each activity in the workflow is a function that gets automatically built as its own container and hosted serverlessly by Sahale. 
 const runSpeechAnalytics = async (request, ctx) => {
     const audioFileUri = request.audioFileUri;
     const numSegments = request.numSegments;
