@@ -10,11 +10,16 @@ import (
 
 func main() {
     app := &cli.App{
-        Name:  "sahale",
-        Usage: "let's build a workflow! 🏔",
-        Action: func(*cli.Context) error {
-            fmt.Println("hello world!")
-            return nil
+        Commands: []*cli.Command{
+            {
+                Name:    "build",
+                Aliases: []string{"a"},
+                Usage:   "build your app in the sahale cloud",
+                Action: func(cCtx *cli.Context) error {
+                    fmt.Println("built app: ", cCtx.Args().First())
+                    return nil
+                },
+            },
         },
     }
 
