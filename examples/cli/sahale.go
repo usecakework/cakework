@@ -20,6 +20,15 @@ func main() {
                     return nil
                 },
             },
+            {
+                Name:    "deploy",
+                Aliases: []string{"a"},
+                Usage:   "deploy your app in the sahale cloud so that it's ready to be invoked",
+                Action: func(cCtx *cli.Context) error {
+                    fmt.Println("deployed app: ", cCtx.Args().First())
+                    return nil
+                },
+            },
         },
     }
 
