@@ -1,4 +1,4 @@
-module cli
+module sahale
 
 go 1.19
 
