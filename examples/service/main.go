@@ -29,11 +29,7 @@ func main() {
     router.GET("/albums/:id", getAlbumByID)
     router.POST("/albums", postAlbums)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	if err := router.Run(":" + port); err != nil {
+	if err := router.Run(":8080" + port); err != nil {
 
 }
 
