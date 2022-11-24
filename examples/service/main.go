@@ -22,12 +22,19 @@ var albums = []album{
 }
 
 func main() {
-    router := gin.Default()
+    gin.SetMode(gin.ReleaseMode)
+
+	router := gin.Default()
     router.GET("/albums", getAlbums)
     router.GET("/albums/:id", getAlbumByID)
     router.POST("/albums", postAlbums)
 
-    router.Run("localhost:8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if err := router.Run(":" + port); err != nil {
+
 }
 
 // getAlbums responds with the list of all albums as JSON.
