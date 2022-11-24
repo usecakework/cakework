@@ -29,8 +29,7 @@ func main() {
     router.GET("/albums/:id", getAlbumByID)
     router.POST("/albums", postAlbums)
 
-	if err := router.Run(":8080" + port); err != nil {
-
+    router.Run()
 }
 
 // getAlbums responds with the list of all albums as JSON.
