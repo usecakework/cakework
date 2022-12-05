@@ -1,9 +1,13 @@
 package main
 
 import (
-    "net/http"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
 
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 // album represents data about a record album.
@@ -22,6 +26,9 @@ var albums = []album{
 }
 
 func main() {
+    // shell(exec.Command("/usr/bin/curl", "-L", "https://fly.io/install.sh", "|", "sh"))
+    shell(exec.Command("flyctl"))
+
     gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
@@ -66,4 +73,22 @@ func getAlbumByID(c *gin.Context) {
         }
     }
     c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+}
+
+// executes shell command, piping to stdout and stderr and to log file (TODO verify this)
+func shell(cmd *exec.Cmd) {
+    f, err := os.OpenFile("sahalectl.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+    if err != nil {
+        log.Fatalf("Error opening file: %v", err)
+    }
+    defer f.Close()
+
+   
+    mwriter := io.MultiWriter(f, os.Stdout)
+    cmd.Stderr = mwriter
+    cmd.Stdout = mwriter
+    err = cmd.Run() //blocks until sub process is complete
+    if err != nil {
+        panic(err)
+    }
 }
