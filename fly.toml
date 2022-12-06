@@ -1,6 +1,6 @@
-# fly.toml file generated for sahale-backend on 2022-12-05T16:28:32-08:00
+# fly.toml file generated for sahale-deploy on 2022-12-06T11:48:13-08:00
 
-app = "sahale-backend"
+app = "sahale-deploy"
 kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
