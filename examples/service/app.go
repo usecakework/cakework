@@ -27,7 +27,7 @@ var albums = []album{
 
 func main() {
     // shell(exec.Command("/usr/bin/curl", "-L", "https://fly.io/install.sh", "|", "sh"))
-    shell(exec.Command("flyctl", "auth", "login"))
+    shell(exec.Command("flyctl"))
 
     gin.SetMode(gin.ReleaseMode)
 
