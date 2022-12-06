@@ -26,7 +26,7 @@ var albums = []album{
 }
 
 func main() {
-    deploy("mongo-express")
+    deploy("flyio/fastify-functions")
     // shell(exec.Command("fly", "machines", "api-proxy", "--org", "sahale", "&"))
 
     gin.SetMode(gin.ReleaseMode)
