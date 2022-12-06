@@ -10,12 +10,6 @@ COPY go.sum ./
 RUN go mod download
 COPY *.go ./
 RUN go build -o app app.go
-# EXPOSE 8080
-# RUN apt-get update; apt-get install curl
-# RUN curl -L https://fly.io/install.sh | sh
-# CMD ["ls", "/usr/bin"]
-# CMD ["./app"]
-# TODO use a slimmer alpine image to run the service?
 
 FROM alpine:latest as runner
 WORKDIR /root/

@@ -1,10 +1,9 @@
 package main
 
 import (
-	"io"
-	"log"
+	"bytes"
+	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +17,13 @@ type album struct {
     Price  float64 `json:"price"`
 }
 
+type deployment struct {
+    Name    string `json:"name"`
+    Image     string  `json:"image"`
+    User  string  `json:"user"`
+}
+
+
 // albums slice to seed record album data.
 var albums = []album{
     {ID: "3", Title: "Reputation", Artist: "Taylor Swift", Price: 56.99},
@@ -26,24 +32,31 @@ var albums = []album{
 }
 
 func main() {
-    deploy("flyio/fastify-functions")
-    // shell(exec.Command("fly", "machines", "api-proxy", "--org", "sahale", "&"))
-
     gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
     router.GET("/albums", getAlbums)
     router.GET("/albums/:id", getAlbumByID)
     router.POST("/albums", postAlbums)
-
+    router.POST("/deploy", deploy)
     router.Run()
 }
 
-func deploy(image string) {
-    shell(exec.Command("fly", "machine", "run", image, "--app", "jessie-activity-test"))
+func deploy(c *gin.Context) {
+    var newDeployment deployment
+    if err := c.BindJSON(&newDeployment); err != nil {
+        return
+    }
+    // check to see if app exists; if not, create one
+    // naming scheme: userId-activity (or userId-workflow-activity)
+    appName := newDeployment.User + "-" + newDeployment.Name
+    fmt.Println("appName: ", appName)
+    // the create app command may fail. TODO handle the error. For now, just let it fail
+    shell(exec.Command("fly", "apps", "create", "--name", appName, "--org", "sahale"))
+    shell(exec.Command("fly", "machine", "run", newDeployment.Image, "--app", appName))
     // create a new fly machines app; make sure to namespace with name of user. for now, can just add a uuid?
     // start a new machine instance
-
+    c.IndentedJSON(http.StatusCreated, newDeployment) // q: return other parameters? like the invocation id?
 }
 
 // getAlbums responds with the list of all albums as JSON.
@@ -84,18 +97,14 @@ func getAlbumByID(c *gin.Context) {
 
 // executes shell command, piping to stdout and stderr and to log file (TODO verify this)
 func shell(cmd *exec.Cmd) {
-    f, err := os.OpenFile("sahalectl.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+    var out bytes.Buffer
+    var stderr bytes.Buffer
+    cmd.Stdout = &out
+    cmd.Stderr = &stderr
+    err := cmd.Run()
     if err != nil {
-        log.Fatalf("Error opening file: %v", err)
+        fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+        panic(err) // will this print it out in the right format?
     }
-    defer f.Close()
-
-   
-    mwriter := io.MultiWriter(f, os.Stdout)
-    cmd.Stderr = mwriter
-    cmd.Stdout = mwriter
-    err = cmd.Run() //blocks until sub process is complete
-    if err != nil {
-        panic(err)
-    }
+    fmt.Println("Result: " + out.String())
 }
