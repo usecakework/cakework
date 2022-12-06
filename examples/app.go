@@ -21,8 +21,10 @@ type deployment struct {
     Name    string `json:"name"`
     Image     string  `json:"image"`
     User  string  `json:"user"`
+    // Id  string `json:"id"`  // do they care about a deployment id? probably not. only an invocation id
+    // Status  string `json:"status"`  // do they care about deployment status? 
+    // Endpoint    string `json:"endpoint"` // maybe we shouldn't return this to the user and just store this in our db, so that when someone uses the client to invoke the activity they can do so
 }
-
 
 // albums slice to seed record album data.
 var albums = []album{
@@ -50,12 +52,12 @@ func deploy(c *gin.Context) {
     // check to see if app exists; if not, create one
     // naming scheme: userId-activity (or userId-workflow-activity)
     appName := newDeployment.User + "-" + newDeployment.Name
-    fmt.Println("appName: ", appName)
     // the create app command may fail. TODO handle the error. For now, just let it fail
     shell(exec.Command("fly", "apps", "create", "--name", appName, "--org", "sahale"))
     shell(exec.Command("fly", "machine", "run", newDeployment.Image, "--app", appName))
     // create a new fly machines app; make sure to namespace with name of user. for now, can just add a uuid?
     // start a new machine instance
+    // TODO: insert new activity entry in the database
     c.IndentedJSON(http.StatusCreated, newDeployment) // q: return other parameters? like the invocation id?
 }
 
