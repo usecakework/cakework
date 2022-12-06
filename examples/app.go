@@ -26,8 +26,8 @@ var albums = []album{
 }
 
 func main() {
-    // shell(exec.Command("/usr/bin/curl", "-L", "https://fly.io/install.sh", "|", "sh"))
-    shell(exec.Command("flyctl"))
+    deploy("mongo-express")
+    // shell(exec.Command("fly", "machines", "api-proxy", "--org", "sahale", "&"))
 
     gin.SetMode(gin.ReleaseMode)
 
@@ -37,6 +37,13 @@ func main() {
     router.POST("/albums", postAlbums)
 
     router.Run()
+}
+
+func deploy(image string) {
+    shell(exec.Command("fly", "machine", "run", image, "--app", "jessie-activity-test"))
+    // create a new fly machines app; make sure to namespace with name of user. for now, can just add a uuid?
+    // start a new machine instance
+
 }
 
 // getAlbums responds with the list of all albums as JSON.
