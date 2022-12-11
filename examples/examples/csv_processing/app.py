@@ -4,6 +4,7 @@ import logging
 import time
 import csv
 import requests
+import json
 
 def csv_processor(url):
 	count = 0
@@ -32,7 +33,7 @@ async def main():
 	time.sleep(3)
 	response = client.get_status(id)
 	if response.status == 'SUCCEEDED':
-		logging.info(f"Activity succeeded with result: = '{response.output}'.") # output is a JSON serialized string.
+		logging.info(f"Activity succeeded with result: = '{json.dumps(response.output)}'.")
 
 if __name__ == "__main__":
 	main()
