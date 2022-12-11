@@ -33,7 +33,9 @@ async def main():
     time.sleep(3)
     response = client.get_status(id)
     if response.status == 'SUCCEEDED':
-        logging.info(f"Activity succeeded with result: = '{json.dumps(response.output)}'.")
+         # output is the JSON-serialized out from csv_processor()
+         # for example, "3" (since the output of csv_processor is an int)
+        logging.info(f"Activity succeeded with result: = '{response.output}'.")
 
 if __name__ == "__main__":
     main()
