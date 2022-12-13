@@ -1,3 +1,34 @@
+# Quick Start #
+## Deploying your activity ##
+Note: will be updating this so that the user no longer needs to install grpcio and run the `register_activity.py` themselves.
+The cli will take care of this
+``` 
+git clone https://github.com/usecakework/cakework-examples.git
+cd cakework-examples/examples/python/hello_world
+python3 -m venv env
+source env/bin/activate
+pip install cakework
+pip install grpcio
+python register_activity.py
+dir=$(pwd)
+deactivate
+curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh
+dir=$(pwd)
+cakework deploy app activity $dir
+```
+## Calling your activity ##
+```
+cd cakework-examples/examples/python/hello_world
+source env/bin/activate
+python call_activity.py
+```
+
+
+
+# Below needs to be updated; ignore #
+
+
+
 # note: Example only works for Python at the moment
 
 Download the cakeworkctl cli # TODO add instructions
@@ -12,7 +43,7 @@ Only lower case, numbers, and hyphens are allowed.
 Make sure that the activity name matches the name of the function that you're invoking as part of an activity.
 
 Example:
-`cakework deploy id app activity /Users/jessieyoung/workspace/cakework-examples/examples/python/hello_world`
+`cakework deploy app activity /Users/jessieyoung/workspace/cakework-examples/examples/python/hello_world`
 
 Modify `call_activity.py` to pass the parameters that you wish.
 
