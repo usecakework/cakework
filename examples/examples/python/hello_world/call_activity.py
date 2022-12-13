@@ -32,7 +32,7 @@ def run():
     client = Client("id", "app")
     parameters = {"name": "jessie", "age": 34}
     print("Starting activity with parameters: " + json.dumps(parameters))
-    response = client.start_new_activity("myactivity", parameters) # for now, synchronously wait for result
+    response = client.start_new_activity("activity", parameters) # for now, synchronously wait for result
     print("Got result: " + response.result)
 
 if __name__ == '__main__':
