@@ -29,7 +29,7 @@ import sahale_pb2
 import json
 
 def run():
-    client = Client("id", "app")
+    client = Client("id", "app", True)
     parameters = {"name": "jessie", "age": 34}
     print("Starting activity with parameters: " + json.dumps(parameters))
     response = client.start_new_activity("myactivity", parameters) # for now, synchronously wait for result
