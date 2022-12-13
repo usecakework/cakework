@@ -1,5 +1,5 @@
-from sahale.app import App
+from cakework.app import App
 from submodule.activity import activity
 
-app = App("id", "app")
+app = App("app")
 app.register_activity(activity, "activity")

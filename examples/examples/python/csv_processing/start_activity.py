@@ -1,6 +1,8 @@
 from sahale.client import Client
 import json
 
+# TODO this is not up to date and needs to be fixed
+
 async def main():
     url = "https://my-bucket.s3.amazonaws.com/file.csv"
     client = Client("my-app", "my-user-id") # TODO remove user id parameter and infer this from the logged-in credentials isntead 

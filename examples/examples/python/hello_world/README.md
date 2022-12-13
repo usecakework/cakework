@@ -1,7 +1,7 @@
 # note: Example only works for Python at the moment
 
-Download the sahalectl cli # TODO add instructions
-`cd sahale-examples/examples/python/hello_world`
+Download the cakeworkctl cli # TODO add instructions
+`cd cakework-examples/examples/python/hello_world`
 
 Modify `register_activity.py` so that you pass in your user id, app name, and activity name. # TODO: make it so that you don't need to pass in the user id, app name, and activity name via both the cli as well as via code.
 
@@ -12,7 +12,7 @@ Only lower case, numbers, and hyphens are allowed.
 Make sure that the activity name matches the name of the function that you're invoking as part of an activity.
 
 Example:
-`sahale deploy id app activity /Users/jessieyoung/workspace/sahale-examples/examples/python/hello_world`
+`cakework deploy id app activity /Users/jessieyoung/workspace/cakework-examples/examples/python/hello_world`
 
 Modify `call_activity.py` to pass the parameters that you wish.
 

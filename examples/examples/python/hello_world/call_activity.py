@@ -21,15 +21,15 @@ from __future__ import print_function
 
 import logging
 
-# from sahale.client import Client #TODO change bak to this
-from sahale.client import Client
+# from cakework.client import Client #TODO change bak to this
+from cakework.client import Client
 import grpc
-import sahale_pb2_grpc
-import sahale_pb2
+import cakework_pb2_grpc
+import cakework_pb2
 import json
 
 def run():
-    client = Client("id", "app")
+    client = Client("app")
     parameters = {"name": "jessie", "age": 34}
     print("Starting activity with parameters: " + json.dumps(parameters))
     response = client.start_new_activity("activity", parameters) # for now, synchronously wait for result
