@@ -1,14 +1,13 @@
 # Quick Start #
 ## Deploying your activity ##
-Note: will be updating this so that the user no longer needs to install grpcio and run the `register_activity.py` themselves.
+Note: will be updating this so that the user no longer needs to install grpcio and protobuf and run the `register_activity.py` themselves.
 The cli will take care of this
 ``` 
 git clone https://github.com/usecakework/cakework-examples.git
 cd cakework-examples/examples/python/hello_world
 python3 -m venv env
 source env/bin/activate
-pip install cakework
-pip install grpcio
+pip install -r requirements.txt
 python register_activity.py
 dir=$(pwd)
 deactivate
@@ -18,7 +17,7 @@ cakework deploy app activity $dir
 ```
 ## Calling your activity ##
 ```
-cd cakework-examples/examples/python/hello_world
+cd cakework-examples/examples/python/hello_world/build/activity
 source env/bin/activate
 python call_activity.py
 ```
