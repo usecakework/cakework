@@ -23,9 +23,6 @@ import logging
 
 # from cakework.client import Client #TODO change bak to this
 from cakework.client import Client
-import grpc
-import cakework_pb2_grpc
-import cakework_pb2
 import json
 
 def run():
