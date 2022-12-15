@@ -8,14 +8,23 @@ Note: This will be replaced soon by a cli command so that you can run `cakework 
 ``` 
 git clone https://github.com/usecakework/cakework-examples.git
 cd cakework-examples/examples/python/hello_world
-pip3 install cakework
 ```
+
+### Optional: set up a Python virtual environment ###
+```
+python3 -m venv env
+source env/bin/activate
+```
+
+### Install cakework module ###
+`pip3 install cakework`
+
 ### Deploying your app ###
 `cakework deploy`
 
 ## Calling your activity ##
 ```
-python call_activity.py
+python3 call_activity.py
 ```
 
 ================
