@@ -1,0 +1,34 @@
+app = "shared-app-activity"
+kill_signal = "SIGINT"
+kill_timeout = 5
+processes = []
+
+[env]
+
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = true
+
+[[services]]
+  http_checks = []
+  internal_port = 50051
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.ports]]
+    handlers = []
+    port = 443
+
+  [services.ports.tls_options]
+    alpn = ["h2"]
+
+  [[services.tcp_checks]]
+    grace_period = "4s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "10s"
