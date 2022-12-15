@@ -1,28 +1,24 @@
 # Quick Start #
 ## Deploying your activity ##
-Note: will be updating this so that the user no longer needs to install grpcio and protobuf and run the `register_activity.py` themselves.
-The cli will take care of this
+### Install the Cakework CLI ###
+`curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh`
+
+### Setting up your project ###
+Note: This will be replaced soon by a cli command so that you can run `cakework init` to create a new blank app.
 ``` 
 git clone https://github.com/usecakework/cakework-examples.git
 cd cakework-examples/examples/python/hello_world
-python3 -m venv env
-source env/bin/activate
-pip install -r requirements.txt
-python register_activity.py
-dir=$(pwd)
-deactivate
-curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh
-dir=$(pwd)
-cakework deploy app activity $dir
+pip3 install cakework
 ```
+### Deploying your app ###
+`cakework deploy`
+
 ## Calling your activity ##
 ```
-cd cakework-examples/examples/python/hello_world/build/activity
-source env/bin/activate
 python call_activity.py
 ```
 
-
+================
 
 # Below needs to be updated; ignore #
 
