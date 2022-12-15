@@ -1,3 +1,1 @@
-grpcio==1.51.1
-protobuf==4.21.11
-cakework==0.0.0
+cakework
