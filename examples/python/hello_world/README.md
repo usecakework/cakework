@@ -22,6 +22,4 @@ source env/bin/activate
 
 ## Calling the app ##
 Refer to the tst/invoke_task.py for an example of how to invoke your running task.
-```
-python3 invoke_task.py
-```
+`python3 invoke_task.py`
