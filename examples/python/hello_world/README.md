@@ -1,6 +1,8 @@
 # Quick Start #
 ## Install the cli ##
-`curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh`
+```
+curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh
+```
 
 ## Create a new project ##
 ``` 
@@ -15,11 +17,17 @@ source env/bin/activate
 ```
 
 ## Install cakework module ##
-`pip3 install cakework`
+```
+pip3 install cakework
+```
 
 ## Start your app ##
-`cakework start`
+```
+cakework start
+```
 
 ## Calling the app ##
-Refer to the tst/invoke_task.py for an example of how to invoke your running task.
-`python3 invoke_task.py`
+Refer to the tst/invoke_task.py for an example of how to invoke your running task. Modify the script to call your task and pass in parameters.
+```
+python3 invoke_task.py
+```
