@@ -3,10 +3,9 @@
 `curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh`
 
 ## Create a new project ##
-Note: This will be replaced soon by a cli command so that you can run `cakework init` to create a new blank app.
 ``` 
-git clone https://github.com/usecakework/cakework-examples.git
-cd cakework-examples/examples/python/hello_world
+cakework new my-app-name --lang python
+cd my-app-name
 ```
 
 ## Optional: set up a virtual environment ##
@@ -18,12 +17,13 @@ source env/bin/activate
 ## Install cakework module ##
 `pip3 install cakework`
 
-## Deploy your app ##
-`cakework deploy`
+## Start your app ##
+`cakework start`
 
 ## Calling the app ##
+Refer to the tst/invoke_task.py for an example of how to invoke your running task.
 ```
-python3 call_activity.py
+python3 invoke_task.py
 ```
 
 ================
