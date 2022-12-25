@@ -1,6 +1,6 @@
 # fly.toml file generated for sahale-deploy on 2022-12-06T11:48:13-08:00
 
-app = "sahale-deploy"
+app = "cakework-backend"
 kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
