@@ -1,0 +1,5 @@
+cakework
+banana_dev
+pillow
+boto3
+nanoid
