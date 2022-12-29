@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"database/sql"
@@ -15,6 +16,12 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+const (
+	streamName     = "ORDERS"
+	streamSubjects = "ORDERS.*"
+	subjectName    = "ORDERS.created"
+)
+
 type task struct {
     ID     string  `json:"id"`
     Parameters  string  `json:"parameters"`
@@ -22,48 +29,33 @@ type task struct {
     Result  string `json:"result"`
 }
 
-
-// album represents data about a record album.
-type album struct {
-    ID     string  `json:"id"`
-    Title  string  `json:"title"`
-    Artist string  `json:"artist"`
-    Price  float64 `json:"price"`
-}
-
-type deployment struct {
-    Name    string `json:"name"`
-    Image     string  `json:"image"`
-    User  string  `json:"user"`
-    // Id  string `json:"id"`  // do they care about a deployment id? probably not. only an invocation id
-    // Status  string `json:"status"`  // do they care about deployment status? 
-    // Endpoint    string `json:"endpoint"` // maybe we shouldn't return this to the user and just store this in our db, so that when someone uses the client to invoke the activity they can do so
-}
-
-// albums slice to seed record album data.
-var albums = []album{
-    {ID: "3", Title: "Reputation", Artist: "Taylor Swift", Price: 56.99},
-    {ID: "4", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
-    {ID: "5", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
-}
-
 var db *sql.DB
 var err error
 
 func main() {
     // nc, _ := nats.Connect(nats.DefaultURL)
-    nc, _ := nats.Connect("https://cakework-nats-cluster.fly.dev.internal")
+    nc, _ := nats.Connect("cakework-nats-cluster.internal")
 
-    // Simple Publisher
-    nc.Publish("foo", []byte("Hello World"))
+	// Creates JetStreamContext
+	js, err := nc.JetStream()
+	checkErr(err)
+	// Creates stream
+	err = createStream(js)
+	checkErr(err)
+	// Create orders by publishing messages
+	err = createOrder(js)
+	checkErr(err)
 
-    // Simple Async Subscriber
-    nc.Subscribe("foo", func(m *nats.Msg) {
-        fmt.Printf("Received a message: %s\n", string(m.Data))
-    })
 
-    nc.Publish("foo", []byte("Hello World 2"))
+    // // Simple Publisher
+    // nc.Publish("foo", []byte("Hello World"))
 
+    // // Simple Async Subscriber
+    // nc.Subscribe("foo", func(m *nats.Msg) {
+    //     fmt.Printf("Received a message: %s\n", string(m.Data))
+    // })
+
+    // nc.Publish("foo", []byte("Hello World 3"))
 
     dsn := "xodsymuvucvxj8a0fcvj:pscale_pw_wBKY0AVn5yilMTIVANcwmSxj2viJV76thiDTaNqHO96@tcp(us-west.connect.psdb.cloud)/sahale-application-db?tls=true"
     // Open the connection
@@ -79,9 +71,8 @@ func main() {
     gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
-    router.GET("/albums", getAlbums)
-    router.GET("/albums/:id", getAlbumByID)
-    router.POST("/albums", postAlbums)
+    // router.GET("/albums", getAlbums)
+    // router.GET("/albums/:id", getAlbumByID)
     
     router.POST("/call-task", callTask)
     // router.GET("/get-status", getStatus)
@@ -89,25 +80,10 @@ func main() {
     router.Run()
 }
 
-// getAlbums responds with the list of all albums as JSON.
-func getAlbums(c *gin.Context) {
-    c.IndentedJSON(http.StatusOK, albums)
-}
-
-// postAlbums adds an album from JSON received in the request body.
-func postAlbums(c *gin.Context) {
-    var newAlbum album
-
-    // Call BindJSON to bind the received JSON to
-    // newAlbum.
-    if err := c.BindJSON(&newAlbum); err != nil {
-        return
-    }
-
-    // Add the new album to the slice.
-    albums = append(albums, newAlbum)
-    c.IndentedJSON(http.StatusCreated, newAlbum)
-}
+// // getAlbums responds with the list of all albums as JSON.
+// func getAlbums(c *gin.Context) {
+//     c.IndentedJSON(http.StatusOK, albums)
+// }
 
 func callTask(c *gin.Context) {
     var newTask task
@@ -138,16 +114,68 @@ func callTask(c *gin.Context) {
 
 // getAlbumByID locates the album whose ID value matches the id
 // parameter sent by the client, then returns that album as a response.
-func getAlbumByID(c *gin.Context) {
-    id := c.Param("id")
+// func getAlbumByID(c *gin.Context) {
+//     id := c.Param("id")
 
-    // Loop through the list of albums, looking for
-    // an album whose ID value matches the parameter.
-    for _, a := range albums {
-        if a.ID == id {
-            c.IndentedJSON(http.StatusOK, a)
-            return
-        }
-    }
-    c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+//     // Loop through the list of albums, looking for
+//     // an album whose ID value matches the parameter.
+//     for _, a := range albums {
+//         if a.ID == id {
+//             c.IndentedJSON(http.StatusOK, a)
+//             return
+//         }
+//     }
+//     c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+// }
+
+type Order struct {
+	OrderID    int
+	CustomerID string
+	Status     string
+}
+
+// createOrder publishes stream of events
+// with subject "ORDERS.created"
+func createOrder(js nats.JetStreamContext) error {
+	var order Order
+	for i := 1; i <= 10; i++ {
+		order = Order{
+			OrderID:    i,
+			CustomerID: "Cust-" + strconv.Itoa(i),
+			Status:     "created",
+		}
+		orderJSON, _ := json.Marshal(order)
+		_, err := js.Publish(subjectName, orderJSON)
+		if err != nil {
+			return err
+		}
+		log.Printf("Order with OrderID:%d has been published\n", i)
+	}
+	return nil
+}
+
+// createStream creates a stream by using JetStreamContext
+func createStream(js nats.JetStreamContext) error {
+	// Check if the ORDERS stream already exists; if not, create it.
+	stream, err := js.StreamInfo(streamName)
+	if err != nil {
+		log.Println(err)
+	}
+	if stream == nil {
+		log.Printf("creating stream %q and subjects %q", streamName, streamSubjects)
+		_, err = js.AddStream(&nats.StreamConfig{
+			Name:     streamName,
+			Subjects: []string{streamSubjects},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkErr(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
 }
