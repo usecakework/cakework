@@ -1,13 +1,25 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
+	"context"
+	"log"
 	"net/http"
-	"os/exec"
+	"time"
+
+	"database/sql"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 )
+
+type task struct {
+    ID     string  `json:"id"`
+    Parameters  string  `json:"parameters"`
+    Status string  `json:"status"`
+    Result  string `json:"result"`
+}
+
 
 // album represents data about a record album.
 type album struct {
@@ -16,6 +28,9 @@ type album struct {
     Artist string  `json:"artist"`
     Price  float64 `json:"price"`
 }
+
+
+
 
 type deployment struct {
     Name    string `json:"name"`
@@ -33,7 +48,22 @@ var albums = []album{
     {ID: "5", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
 }
 
+var db *sql.DB
+var err error
+
 func main() {
+    // dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", username, password, host, port, database)
+    dsn := "xodsymuvucvxj8a0fcvj:pscale_pw_wBKY0AVn5yilMTIVANcwmSxj2viJV76thiDTaNqHO96@tcp(us-west.connect.psdb.cloud)/sahale-application-db?tls=true"
+    // Open the connection
+    db, err = sql.Open("mysql", dsn)
+    if err != nil {
+        log.Fatalf("impossible to create the connection: %s", err)
+    }
+    defer db.Close()
+    db.SetConnMaxLifetime(time.Minute * 3)
+    db.SetMaxOpenConns(10)
+    db.SetMaxIdleConns(10)
+
     gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
@@ -41,6 +71,10 @@ func main() {
     router.GET("/albums/:id", getAlbumByID)
     router.POST("/albums", postAlbums)
     router.POST("/deploy", deploy)
+    
+    router.POST("/call-task", callTask)
+    // router.GET("/get-status", getStatus)
+    // router.GET("/get-result", getResult)
     router.Run()
 }
 
@@ -49,16 +83,6 @@ func deploy(c *gin.Context) {
     if err := c.BindJSON(&newDeployment); err != nil {
         return
     }
-    // check to see if app exists; if not, create one
-    // naming scheme: userId-activity (or userId-workflow-activity)
-    appName := newDeployment.User + "-" + newDeployment.Name
-    // the create app command may fail. TODO handle the error. For now, just let it fail
-    shell(exec.Command("fly", "apps", "create", "--name", appName, "--org", "sahale"))
-    shell(exec.Command("fly", "machine", "run", newDeployment.Image, "--app", appName))
-    // create a new fly machines app; make sure to namespace with name of user. for now, can just add a uuid?
-    // start a new machine instance
-    // TODO: insert new activity entry in the database
-    c.IndentedJSON(http.StatusCreated, newDeployment) // q: return other parameters? like the invocation id?
 }
 
 // getAlbums responds with the list of all albums as JSON.
@@ -81,6 +105,33 @@ func postAlbums(c *gin.Context) {
     c.IndentedJSON(http.StatusCreated, newAlbum)
 }
 
+func callTask(c *gin.Context) {
+    var newTask task
+
+    if err := c.BindJSON(&newTask); err != nil {
+        return
+    }
+
+    newTask.ID = (uuid.New()).String()
+    newTask.Status = "PENDING"
+
+    query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
+    insertResult, err := db.ExecContext(context.Background(), query, newTask.ID, newTask.Status, newTask.Parameters)
+    if err != nil {
+        log.Fatalf("impossible insert teacher: %s", err)
+    }
+    id, err := insertResult.LastInsertId()
+    if err != nil {
+        log.Fatalf("impossible to retrieve last inserted id: %s", err)
+    }
+    log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+
+    // TODO enqueue the task into NATS
+    
+
+    c.IndentedJSON(http.StatusCreated, newTask)
+}
+
 // getAlbumByID locates the album whose ID value matches the id
 // parameter sent by the client, then returns that album as a response.
 func getAlbumByID(c *gin.Context) {
@@ -95,18 +146,4 @@ func getAlbumByID(c *gin.Context) {
         }
     }
     c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
-}
-
-// executes shell command, piping to stdout and stderr and to log file (TODO verify this)
-func shell(cmd *exec.Cmd) {
-    var out bytes.Buffer
-    var stderr bytes.Buffer
-    cmd.Stdout = &out
-    cmd.Stderr = &stderr
-    err := cmd.Run()
-    if err != nil {
-        fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
-        panic(err) // will this print it out in the right format?
-    }
-    fmt.Println("Result: " + out.String())
 }
