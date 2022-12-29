@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 )
 
 type task struct {
@@ -28,9 +30,6 @@ type album struct {
     Artist string  `json:"artist"`
     Price  float64 `json:"price"`
 }
-
-
-
 
 type deployment struct {
     Name    string `json:"name"`
@@ -52,7 +51,20 @@ var db *sql.DB
 var err error
 
 func main() {
-    // dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", username, password, host, port, database)
+    // nc, _ := nats.Connect(nats.DefaultURL)
+    nc, _ := nats.Connect("https://cakework-nats-cluster.fly.dev.internal")
+
+    // Simple Publisher
+    nc.Publish("foo", []byte("Hello World"))
+
+    // Simple Async Subscriber
+    nc.Subscribe("foo", func(m *nats.Msg) {
+        fmt.Printf("Received a message: %s\n", string(m.Data))
+    })
+
+    nc.Publish("foo", []byte("Hello World 2"))
+
+
     dsn := "xodsymuvucvxj8a0fcvj:pscale_pw_wBKY0AVn5yilMTIVANcwmSxj2viJV76thiDTaNqHO96@tcp(us-west.connect.psdb.cloud)/sahale-application-db?tls=true"
     // Open the connection
     db, err = sql.Open("mysql", dsn)
@@ -70,19 +82,11 @@ func main() {
     router.GET("/albums", getAlbums)
     router.GET("/albums/:id", getAlbumByID)
     router.POST("/albums", postAlbums)
-    router.POST("/deploy", deploy)
     
     router.POST("/call-task", callTask)
     // router.GET("/get-status", getStatus)
     // router.GET("/get-result", getResult)
     router.Run()
-}
-
-func deploy(c *gin.Context) {
-    var newDeployment deployment
-    if err := c.BindJSON(&newDeployment); err != nil {
-        return
-    }
 }
 
 // getAlbums responds with the list of all albums as JSON.
@@ -118,7 +122,7 @@ func callTask(c *gin.Context) {
     query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
     insertResult, err := db.ExecContext(context.Background(), query, newTask.ID, newTask.Status, newTask.Parameters)
     if err != nil {
-        log.Fatalf("impossible insert teacher: %s", err)
+        log.Fatalf("impossible to insert : %s", err)
     }
     id, err := insertResult.LastInsertId()
     if err != nil {
@@ -127,7 +131,7 @@ func callTask(c *gin.Context) {
     log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
 
     // TODO enqueue the task into NATS
-    
+
 
     c.IndentedJSON(http.StatusCreated, newTask)
 }
