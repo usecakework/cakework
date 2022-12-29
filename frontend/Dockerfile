@@ -1,22 +1,25 @@
+# # syntax=docker/dockerfile:1
+
+# FROM golang:1.19
+# WORKDIR /app
+# COPY . .
+# RUN go mod download
+# RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o frontend .
+
 # syntax=docker/dockerfile:1
-
-FROM golang:1.19-alpine as builder
-
-ENV GO111MODULE=on
+FROM golang:1.19-alpine
 WORKDIR /app
-ENV GIN_MODE=release
-COPY go.mod ./
-COPY go.sum ./
-RUN go mod download
-COPY *.go ./
-RUN go build -o app app.go
 
-FROM alpine:latest as runner
+# COPY go.mod ./
+# COPY go.sum ./
+# RUN go mod download
+
+COPY . . 
+RUN go build -o /frontend
+RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o frontend .
+
+FROM alpine:latest  
 WORKDIR /root/
-RUN apk update && apk add curl
-RUN curl -L https://fly.io/install.sh | sh
-ENV FLYCTL_INSTALL=/root/.fly
-ENV PATH=$FLYCTL_INSTALL/bin:$PATH
-COPY --from=builder /app/app .
+COPY --from=0 /app/frontend ./
 EXPOSE 8080
-CMD ["./app"]
+CMD ["./frontend"]
