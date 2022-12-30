@@ -47,7 +47,7 @@ func main() {
 
 	c := pb.NewCakeworkClient(conn)
 
-	createReq := pb.Request{Parameters: "{\"name\": \"jessie\""}
+	createReq := pb.Request{ Parameters: `{"name":"eric chen"}` }
 	response, err := c.RunActivity(context.Background(), &createReq)
 	if err != nil {
 		log.Fatalf("Error Cakework RunActivity: %s", err)
