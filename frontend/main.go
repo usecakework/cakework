@@ -59,6 +59,11 @@ type GetStatusResponse struct {
     Status     string  `json:"status"`
 }
 
+type GetResultRequest struct {
+    UserId     string  `json:"userId"`
+	App	string `json:"app"`
+    RequestId  string  `json:"requestId"`
+}
 // Q: how will errors be handled? TODO need to expose an error field?
 type GetResultResponse struct {
     Result     string  `json:"result"`
@@ -121,7 +126,7 @@ func main() {
     
     router.POST("/submit-task", submitTask)
     router.GET("/get-status", getStatus)
-    // router.GET("/get-result", getResult)
+    router.GET("/get-result", getResult)
     router.Run()
 }
 
@@ -210,6 +215,39 @@ func getStatus(c *gin.Context) {
 	} else {
 		response := GetStatusResponse{
 			Status: taskRun.Status,
+		}
+		c.IndentedJSON(http.StatusOK, response)
+	}   
+
+}
+
+func getResult(c *gin.Context) {
+
+    var newGetResultRequest GetResultRequest
+
+    if err := c.BindJSON(&newGetResultRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	userId := strings.Replace(strings.ToLower(newGetResultRequest.UserId), "_", "-", -1)
+	app := strings.Replace(strings.ToLower(newGetResultRequest.App), "_", "-", -1)
+
+	taskRun, err := getTaskRun(userId, app, newGetResultRequest.RequestId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("no request with request id found")
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RequestId + " not found"})
+		} else {
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		}
+	} else {
+		response := GetResultResponse{
+			Result: taskRun.Result,
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}   
