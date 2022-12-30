@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"database/sql"
+	"google.golang.org/grpc"
+
+	"proto/cakework"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -33,6 +36,33 @@ var db *sql.DB
 var err error
 
 func main() {
+    ////// testing grpc go client
+	var conn *grpc.ClientConn
+	// conn, err := grpc.Dial(":9000", grpc.WithInsecure())
+    conn, err := grpc.Dial("shared-app-say-hello.fly.dev", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %s", err)
+	}
+	defer conn.Close()
+
+	c := cakework.NewCakeworkClient(conn)
+
+	createReq := cakework.Request{Parameters: "{\"name\": \"jessie\""}
+	response, err := c.Create(context.Background(), &createReq)
+	if err != nil {
+		log.Fatalf("Error Cakework RunActivity: %s", err)
+	}
+	log.Printf("Response from server: %s", response.Message)
+
+    panic("no disco")
+
+
+
+
+
+    //////
+
+
     // nc, _ := nats.Connect(nats.DefaultURL)
     nc, _ := nats.Connect("cakework-nats-cluster.internal")
 
