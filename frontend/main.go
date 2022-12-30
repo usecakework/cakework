@@ -1,12 +1,13 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,8 +29,27 @@ type task struct {
     Result  string `json:"result"`
 }
 
+type taskRequest struct {
+    UserId     string  `json:"userId"`
+	App	string `json:"app"`
+	Task string `json:"task"`
+    Parameters  string  `json:"parameters"`
+}
+
+type taskRun struct {
+    UserId     string  `json:"userId"`
+	App	string `json:"app"`
+	Task string `json:"task"`
+    Parameters  string  `json:"parameters"`
+	RequestId     string  `json:"requestId"`
+	Status	string `json:"status"`
+	Result  string  `json:"result"`
+}
+
 var db *sql.DB
 var err error
+
+var js nats.JetStreamContext
 
 func main() {
 
@@ -37,14 +57,17 @@ func main() {
     // nc, _ := nats.Connect("cakework-nats-cluster.internal")
 
 	// Creates JetStreamContext
-	js, err := nc.JetStream()
+	js, err = nc.JetStream()
 	checkErr(err)
+
+	/*
 	// Creates stream
 	err = createStream(js)
 	checkErr(err)
 	// Create orders by publishing messages
 	err = createOrder(js)
 	checkErr(err)
+	*/
 
     // // Simple Publisher
     // nc.Publish("foo", []byte("Hello World"))
@@ -73,7 +96,7 @@ func main() {
     // router.GET("/albums", getAlbums)
     // router.GET("/albums/:id", getAlbumByID)
     
-    router.POST("/call-task", callTask)
+    router.POST("/start-task", startTask)
     // router.GET("/get-status", getStatus)
     // router.GET("/get-result", getResult)
     router.Run()
@@ -84,31 +107,47 @@ func main() {
 //     c.IndentedJSON(http.StatusOK, albums)
 // }
 
-func callTask(c *gin.Context) {
-    var newTask task
+func startTask(c *gin.Context) {
+	// err = createOrder(js)
 
-    if err := c.BindJSON(&newTask); err != nil {
+    var newTaskRequest taskRequest
+
+    if err := c.BindJSON(&newTaskRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
         return
     }
 
-    newTask.ID = (uuid.New()).String()
-    newTask.Status = "PENDING"
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
-    query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
-    insertResult, err := db.ExecContext(context.Background(), query, newTask.ID, newTask.Status, newTask.Parameters)
-    if err != nil {
-        log.Fatalf("impossible to insert : %s", err)
-    }
-    id, err := insertResult.LastInsertId()
-    if err != nil {
-        log.Fatalf("impossible to retrieve last inserted id: %s", err)
-    }
-    log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+	// sanitize; convert app and task name to lower case, only hyphens
+	app := strings.Replace(strings.ToLower(newTaskRequest.App), "_", "-", -1)
+	task := strings.Replace(strings.ToLower(newTaskRequest.Task), "_", "-", -1)
+
+	newTaskRun := taskRun {
+		UserId: newTaskRequest.UserId,
+		App: app,
+		Task: task,
+		Parameters: newTaskRequest.Parameters,
+		RequestId: (uuid.New()).String(),
+		Status: "PENDING",
+	}
+	
+    // query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
+    // insertResult, err := db.ExecContext(context.Background(), query, newTaskRequest.ID, newTaskRequest.Status, newTaskRequest.Parameters)
+    // if err != nil {
+    //     log.Fatalf("impossible to insert : %s", err)
+    // }
+    // id, err := insertResult.LastInsertId()
+    // if err != nil {
+    //     log.Fatalf("impossible to retrieve last inserted id: %s", err)
+    // }
+    // log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
 
     // TODO enqueue the task into NATS
 
-
-    c.IndentedJSON(http.StatusCreated, newTask)
+	// ok that for post that we return something different?
+    c.IndentedJSON(http.StatusCreated, newTaskRun)
 }
 
 // getAlbumByID locates the album whose ID value matches the id
@@ -152,6 +191,25 @@ func createOrder(js nats.JetStreamContext) error {
 	}
 	return nil
 }
+
+func createOneOrder(js nats.JetStreamContext) error {
+	var order Order
+	for i := 1; i <= 2; i++ {
+		order = Order{
+			OrderID:    i,
+			CustomerID: "Cust-" + strconv.Itoa(i),
+			Status:     "created",
+		}
+		orderJSON, _ := json.Marshal(order)
+		_, err := js.Publish(subjectName, orderJSON)
+		if err != nil {
+			return err
+		}
+		log.Printf("Order with OrderID:%d has been published\n", i)
+	}
+	return nil
+}
+
 
 // createStream creates a stream by using JetStreamContext
 func createStream(js nats.JetStreamContext) error {

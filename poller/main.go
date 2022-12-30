@@ -34,7 +34,6 @@ type task struct {
     Result  string `json:"result"`
 }
 
-
 func main() {
 
     nc, _ := nats.Connect(nats.DefaultURL)
@@ -46,7 +45,6 @@ func main() {
    
 	// Create Pull based consumer with maximum 128 inflight.
    // PullMaxWaiting defines the max inflight pull requests.
-
 
    for {
 		fmt.Println("start of new for loop") 
@@ -117,4 +115,5 @@ func reviewOrder(js nats.JetStreamContext, order Order) {
 	//    log.Fatal(err)
 	// }
 	log.Printf("Order with OrderID:%d has been %s\n",order.OrderID, order.Status)
+	// TODO here we will call the fly endpoint
  }
