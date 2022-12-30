@@ -23,7 +23,6 @@ const (
 	subjectName    = "TASKS.created"
 )
 
-
 type task struct {
     ID     string  `json:"id"`
     Parameters  string  `json:"parameters"`
@@ -67,6 +66,20 @@ type GetResultRequest struct {
 // Q: how will errors be handled? TODO need to expose an error field?
 type GetResultResponse struct {
     Result     string  `json:"result"`
+}
+
+type UpdateStatusRequest struct {
+	UserId     string  `json:"userId"`
+	App	string `json:"app"`
+    RequestId  string  `json:"requestId"`
+	Status  string  `json:"status"`
+}
+
+type UpdateResultRequest struct {
+	UserId     string  `json:"userId"`
+	App	string `json:"app"`
+    RequestId  string  `json:"requestId"`
+	Result  string  `json:"result"`
 }
 
 var db *sql.DB
@@ -123,11 +136,15 @@ func main() {
 	router := gin.Default()
     // router.GET("/albums", getAlbums)
     // router.GET("/albums/:id", getAlbumByID)
-    
+    // Q: what is 204 no content?
     router.POST("/submit-task", submitTask)
-    router.GET("/get-status", getStatus)
-    router.GET("/get-result", getResult)
-    router.Run()
+	// router.GET("/get-task", getTaskRun) //TODO we should probably have this
+    router.GET("/get-status", getStatus) // TODO change to the syntax /status/:requestId? and /result/:requestId?
+    router.GET("/get-result", getResult) 
+	router.PUT("/get-result", getResult)
+    router.PATCH("/update-status", updateStatus)
+	router.PATCH("/update-result", updateResult)
+	router.Run()
 }
 
 // // getAlbums responds with the list of all albums as JSON.
@@ -251,7 +268,72 @@ func getResult(c *gin.Context) {
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}   
+}
 
+
+func updateStatus(c *gin.Context) {
+
+    var request UpdateStatusRequest
+
+    if err := c.BindJSON(&request); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+
+	// TODO verify that we aren't overwriting anything
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	// userId := strings.Replace(strings.ToLower(request.UserId), "_", "-", -1)
+	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
+
+	// TODO use the userId and app
+	stmt, err := db.Prepare("UPDATE TaskRun SET status = ? WHERE requestId = ?")
+	checkErr(err)
+
+	res, e := stmt.Exec(request.Status, request.RequestId)
+	checkErr(e)
+	
+	a, e := res.RowsAffected()
+	checkErr(e)
+	
+	fmt.Println(a)  
+		
+	if err != nil {
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+	} else {
+		c.Status(http.StatusOK)
+	}   
+}
+
+func updateResult(c *gin.Context) {
+
+    var request UpdateResultRequest
+
+    if err := c.BindJSON(&request); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+	
+	// TODO use the userId and app
+	stmt, err := db.Prepare("UPDATE TaskRun SET result = ? WHERE requestId = ?")
+	checkErr(err)
+
+	res, e := stmt.Exec(request.Result, request.RequestId)
+	checkErr(e)
+	
+	a, e := res.RowsAffected()
+	checkErr(e)
+	
+	fmt.Println(a)  
+		
+	if err != nil {
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+	} else {
+		c.Status(http.StatusOK)
+	}   
 }
 
 
