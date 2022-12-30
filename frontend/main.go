@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -17,10 +18,11 @@ import (
 )
 
 const (
-	streamName     = "ORDERS"
-	streamSubjects = "ORDERS.*"
-	subjectName    = "ORDERS.created"
+	streamName     = "TASKS"
+	streamSubjects = "TASKS.*"
+	subjectName    = "TASKS.created"
 )
+
 
 type task struct {
     ID     string  `json:"id"`
@@ -29,14 +31,15 @@ type task struct {
     Result  string `json:"result"`
 }
 
-type taskRequest struct {
+type TaskRequest struct {
     UserId     string  `json:"userId"`
 	App	string `json:"app"`
 	Task string `json:"task"`
     Parameters  string  `json:"parameters"`
 }
 
-type taskRun struct {
+// Q: how to share this type with the poller class?
+type TaskRun struct {
     UserId     string  `json:"userId"`
 	App	string `json:"app"`
 	Task string `json:"task"`
@@ -58,6 +61,11 @@ func main() {
 
 	// Creates JetStreamContext
 	js, err = nc.JetStream()
+	checkErr(err)
+
+	// Creates stream - note: should we need to do this every time? will this cause old stuff to be lost
+	// Q: durability of the stream? where to store it? if reboot will things get lost?
+	err = createStream(js)
 	checkErr(err)
 
 	/*
@@ -96,7 +104,7 @@ func main() {
     // router.GET("/albums", getAlbums)
     // router.GET("/albums/:id", getAlbumByID)
     
-    router.POST("/start-task", startTask)
+    router.POST("/submit-task", submitTask)
     // router.GET("/get-status", getStatus)
     // router.GET("/get-result", getResult)
     router.Run()
@@ -107,10 +115,10 @@ func main() {
 //     c.IndentedJSON(http.StatusOK, albums)
 // }
 
-func startTask(c *gin.Context) {
+func submitTask(c *gin.Context) {
 	// err = createOrder(js)
 
-    var newTaskRequest taskRequest
+    var newTaskRequest TaskRequest
 
     if err := c.BindJSON(&newTaskRequest); err != nil {
 		fmt.Println("got error reading in request")
@@ -121,11 +129,12 @@ func startTask(c *gin.Context) {
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
+	userId := strings.Replace(strings.ToLower(newTaskRequest.UserId), "_", "-", -1)
 	app := strings.Replace(strings.ToLower(newTaskRequest.App), "_", "-", -1)
 	task := strings.Replace(strings.ToLower(newTaskRequest.Task), "_", "-", -1)
 
-	newTaskRun := taskRun {
-		UserId: newTaskRequest.UserId,
+	newTaskRun := TaskRun {
+		UserId: userId,
 		App: app,
 		Task: task,
 		Parameters: newTaskRequest.Parameters,
@@ -133,6 +142,14 @@ func startTask(c *gin.Context) {
 		Status: "PENDING",
 	}
 	
+	// enqueue this message
+	if createTaskRun(newTaskRun) != nil { // TODO check whether this is an err; if so, return different status code
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+	} else {
+		c.IndentedJSON(http.StatusCreated, newTaskRun)
+	}
+	// store this into the database
+
     // query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
     // insertResult, err := db.ExecContext(context.Background(), query, newTaskRequest.ID, newTaskRequest.Status, newTaskRequest.Parameters)
     // if err != nil {
@@ -147,7 +164,7 @@ func startTask(c *gin.Context) {
     // TODO enqueue the task into NATS
 
 	// ok that for post that we return something different?
-    c.IndentedJSON(http.StatusCreated, newTaskRun)
+    
 }
 
 // getAlbumByID locates the album whose ID value matches the id
@@ -206,6 +223,35 @@ func createOneOrder(js nats.JetStreamContext) error {
 			return err
 		}
 		log.Printf("Order with OrderID:%d has been published\n", i)
+	}
+	return nil
+}
+
+func createTaskRun(taskRun TaskRun) error {
+	taskRunJSON, _ := json.Marshal(taskRun)
+	_, err := js.Publish(subjectName, taskRunJSON)
+	if err != nil {
+		fmt.Println("error while publishing")
+		fmt.Println(err)
+		return err // TODO return a human readable error
+	} else {
+		log.Printf("Task run with RequestId:%s has been published\n", taskRun.RequestId)
+		// update the database
+		log.Printf("Inserting into db now")
+		query := "INSERT INTO `TaskRun` (`requestId`, `userId`, `app`, `task`, `parameters`, `status`) VALUES (?, ?, ?, ?, ?, ?)"
+		insertResult, err := db.ExecContext(context.Background(), query, taskRun.RequestId, taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.Status)
+		if err != nil {
+			log.Fatalf("impossible to insert : %s", err)
+			return err
+		}
+		id, err := insertResult.LastInsertId()
+		if err != nil {
+			return err
+			// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
+		} else {
+			log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+			log.Printf("Successfully inserted")
+		}
 	}
 	return nil
 }
