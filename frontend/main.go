@@ -9,10 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"google.golang.org/grpc"
-
-	pb "cakework/frontend/proto/cakework"
-
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -36,35 +32,9 @@ var db *sql.DB
 var err error
 
 func main() {
-    ////// testing grpc go client
-	var conn *grpc.ClientConn
-	// conn, err := grpc.Dial(":9000", grpc.WithInsecure())
-    conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect: %s", err)
-	}
-	defer conn.Close()
 
-	c := pb.NewCakeworkClient(conn)
-
-	createReq := pb.Request{ Parameters: `{"name":"eric chen"}` }
-	response, err := c.RunActivity(context.Background(), &createReq)
-	if err != nil {
-		log.Fatalf("Error Cakework RunActivity: %s", err)
-	}
-	log.Printf("Response from server: %s", response.Result)
-
-    panic("no disco")
-
-
-
-
-
-    //////
-
-
-    // nc, _ := nats.Connect(nats.DefaultURL)
-    nc, _ := nats.Connect("cakework-nats-cluster.internal")
+    nc, _ := nats.Connect(nats.DefaultURL)
+    // nc, _ := nats.Connect("cakework-nats-cluster.internal")
 
 	// Creates JetStreamContext
 	js, err := nc.JetStream()
@@ -75,7 +45,6 @@ func main() {
 	// Create orders by publishing messages
 	err = createOrder(js)
 	checkErr(err)
-
 
     // // Simple Publisher
     // nc.Publish("foo", []byte("Hello World"))
