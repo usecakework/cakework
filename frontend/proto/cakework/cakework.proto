@@ -17,11 +17,11 @@ syntax = "proto3";
 //option java_multiple_files = true;
 //option java_package = "io.grpc.examples.helloworld";
 //option java_outer_classname = "HelloWorldProto";
-option objc_class_prefix = "HLW";
+//option objc_class_prefix = "HLW";
 
 
 package cakework;
-option go_package = "proto/cakework;cakework";
+option go_package = "cakework/frontend/proto/cakework";
 
 // The greeting service definition.
 service Cakework {

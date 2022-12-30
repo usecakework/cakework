@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"proto/cakework"
+	pb "cakework/frontend/proto/cakework"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -39,20 +39,20 @@ func main() {
     ////// testing grpc go client
 	var conn *grpc.ClientConn
 	// conn, err := grpc.Dial(":9000", grpc.WithInsecure())
-    conn, err := grpc.Dial("shared-app-say-hello.fly.dev", grpc.WithInsecure())
+    conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
 
-	c := cakework.NewCakeworkClient(conn)
+	c := pb.NewCakeworkClient(conn)
 
-	createReq := cakework.Request{Parameters: "{\"name\": \"jessie\""}
-	response, err := c.Create(context.Background(), &createReq)
+	createReq := pb.Request{Parameters: "{\"name\": \"jessie\""}
+	response, err := c.RunActivity(context.Background(), &createReq)
 	if err != nil {
 		log.Fatalf("Error Cakework RunActivity: %s", err)
 	}
-	log.Printf("Response from server: %s", response.Message)
+	log.Printf("Response from server: %s", response.Result)
 
     panic("no disco")
 

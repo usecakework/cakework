@@ -35,7 +35,7 @@ func NewCakeworkClient(cc grpc.ClientConnInterface) CakeworkClient {
 
 func (c *cakeworkClient) RunActivity(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
 	out := new(Reply)
-	err := c.cc.Invoke(ctx, "/cakework.Cakework/RunActivity", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Cakework/RunActivity", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func _Cakework_RunActivity_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cakework.Cakework/RunActivity",
+		FullMethod: "/Cakework/RunActivity",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CakeworkServer).RunActivity(ctx, req.(*Request))
@@ -92,7 +92,7 @@ func _Cakework_RunActivity_Handler(srv interface{}, ctx context.Context, dec fun
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Cakework_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "cakework.Cakework",
+	ServiceName: "Cakework",
 	HandlerType: (*CakeworkServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -101,5 +101,5 @@ var Cakework_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/cakework/cakework.proto",
+	Metadata: "cakework.proto",
 }
