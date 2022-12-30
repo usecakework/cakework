@@ -49,7 +49,7 @@ func main() {
    for {
 		// fmt.Println("starting new pull subscribe") 
 		// Q: should we be creating a new pullsubscribe each time?
-		sub, _ := js.PullSubscribe(subSubjectName, "task-review", nats.PullMaxWaiting(128))
+		sub, _ := js.PullSubscribe(subSubjectName, "submitted-tasks", nats.PullMaxWaiting(128))
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	 
 	    defer cancel()

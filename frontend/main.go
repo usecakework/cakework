@@ -49,6 +49,21 @@ type TaskRun struct {
 	Result  string  `json:"result"`
 }
 
+type GetStatusRequest struct {
+    UserId     string  `json:"userId"`
+	App	string `json:"app"`
+    RequestId  string  `json:"requestId"`
+}
+
+type GetStatusResponse struct {
+    Status     string  `json:"status"`
+}
+
+// Q: how will errors be handled? TODO need to expose an error field?
+type GetResultResponse struct {
+    Result     string  `json:"result"`
+}
+
 var db *sql.DB
 var err error
 
@@ -105,7 +120,7 @@ func main() {
     // router.GET("/albums/:id", getAlbumByID)
     
     router.POST("/submit-task", submitTask)
-    // router.GET("/get-status", getStatus)
+    router.GET("/get-status", getStatus)
     // router.GET("/get-result", getResult)
     router.Run()
 }
@@ -166,6 +181,41 @@ func submitTask(c *gin.Context) {
 	// ok that for post that we return something different?
     
 }
+
+func getStatus(c *gin.Context) {
+	// err = createOrder(js)
+
+    var newGetStatusRequest GetStatusRequest
+
+    if err := c.BindJSON(&newGetStatusRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	userId := strings.Replace(strings.ToLower(newGetStatusRequest.UserId), "_", "-", -1)
+	app := strings.Replace(strings.ToLower(newGetStatusRequest.App), "_", "-", -1)
+
+	taskRun, err := getTaskRun(userId, app, newGetStatusRequest.RequestId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("no request with request id found")
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetStatusRequest.RequestId + " not found"})
+		} else {
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		}
+	} else {
+		response := GetStatusResponse{
+			Status: taskRun.Status,
+		}
+		c.IndentedJSON(http.StatusOK, response)
+	}   
+
+}
+
 
 // getAlbumByID locates the album whose ID value matches the id
 // parameter sent by the client, then returns that album as a response.
@@ -256,6 +306,26 @@ func createTaskRun(taskRun TaskRun) error {
 	return nil
 }
 
+func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
+	// TODO use the userId and app
+	var taskRun TaskRun
+	var result sql.NullString
+	err = db.QueryRow("SELECT userId, app, task, parameters, requestId, status, result FROM TaskRun where requestId = ?", requestId).Scan(&taskRun.UserId, &taskRun.App, &taskRun.Task, &taskRun.Parameters, &taskRun.RequestId, &taskRun.Status, &result)
+	if err != nil {
+		// if err == sql.ErrNoRows {
+		return taskRun, err
+		// }
+		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
+	} else {
+		fmt.Println("got task run: ")
+		if result.Valid {
+			taskRun.Result = result.String
+		}
+		fmt.Println(taskRun)
+		return taskRun, nil
+	}
+	
+} 
 
 // createStream creates a stream by using JetStreamContext
 func createStream(js nats.JetStreamContext) error {
