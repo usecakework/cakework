@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -86,12 +87,23 @@ var db *sql.DB
 var err error
 
 var js nats.JetStreamContext
+var local bool
 
 func main() {
+	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+	flag.Parse()
 
-    nc, _ := nats.Connect(nats.DefaultURL)
-    // nc, _ := nats.Connect("cakework-nats-cluster.internal")
+	local = *localPtr
 
+	var nc *nats.Conn
+	if local == true {
+		nc, _ = nats.Connect(nats.DefaultURL)
+		fmt.Println("Local mode; connected to nats cluster: " + nats.DefaultURL)
+	} else {
+		nc, _ = nats.Connect("cakework-nats-cluster.internal")
+		fmt.Println("Non-local mode; connected to nats cluster: cakework-nats-cluster.internal")
+	}
+    
 	// Creates JetStreamContext
 	js, err = nc.JetStream()
 	checkErr(err)
@@ -141,7 +153,6 @@ func main() {
 	// router.GET("/get-task", getTaskRun) //TODO we should probably have this
     router.GET("/get-status", getStatus) // TODO change to the syntax /status/:requestId? and /result/:requestId?
     router.GET("/get-result", getResult) 
-	router.PUT("/get-result", getResult)
     router.PATCH("/update-status", updateStatus)
 	router.PATCH("/update-result", updateResult)
 	router.Run()
@@ -270,7 +281,6 @@ func getResult(c *gin.Context) {
 	}   
 }
 
-
 func updateStatus(c *gin.Context) {
 
     var request UpdateStatusRequest
@@ -297,14 +307,18 @@ func updateStatus(c *gin.Context) {
 	
 	a, e := res.RowsAffected()
 	checkErr(e)
-	
-	fmt.Println(a)  
-		
-	if err != nil {
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
-	} else {
-		c.Status(http.StatusOK)
-	}   
+	fmt.Printf("Updated %d rows", a)
+	if a == 0 {
+		// nothing was updated; row not found most likely (though can be due to some other error)
+		fmt.Println("nothing was updated")
+		c.Status(http.StatusNotFound)
+	} else {		
+		if err != nil {
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		} else {
+			c.Status(http.StatusOK)
+		}   
+	}
 }
 
 func updateResult(c *gin.Context) {
@@ -316,7 +330,14 @@ func updateResult(c *gin.Context) {
 		fmt.Println(err)
         return
     }
-	
+
+	// TODO verify that we aren't overwriting anything
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	// userId := strings.Replace(strings.ToLower(request.UserId), "_", "-", -1)
+	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
+
 	// TODO use the userId and app
 	stmt, err := db.Prepare("UPDATE TaskRun SET result = ? WHERE requestId = ?")
 	checkErr(err)
@@ -326,14 +347,18 @@ func updateResult(c *gin.Context) {
 	
 	a, e := res.RowsAffected()
 	checkErr(e)
-	
-	fmt.Println(a)  
-		
-	if err != nil {
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
-	} else {
-		c.Status(http.StatusOK)
-	}   
+	fmt.Printf("Updated %d rows", a)
+	if a == 0 {
+		// nothing was updated; row not found most likely (though can be due to some other error)
+		fmt.Println("nothing was updated")
+		c.Status(http.StatusNotFound)
+	} else {		
+		if err != nil {
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		} else {
+			c.Status(http.StatusOK)
+		}   
+	}
 }
 
 
