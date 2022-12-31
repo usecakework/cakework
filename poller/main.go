@@ -5,6 +5,8 @@ import (
 	pb "cakework/poller/proto/cakework"
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -35,9 +37,24 @@ const (
 	Result  string  `json:"result"`
 }
 
+var local bool
+
 func main() {
-    nc, _ := nats.Connect(nats.DefaultURL)
-    // nc, _ := nats.Connect("cakework-nats-cluster.internal")
+	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+	flag.Parse()
+
+	local = *localPtr
+
+	var nc *nats.Conn
+
+	if local == true {
+		nc, _ = nats.Connect(nats.DefaultURL)
+		fmt.Println("Local mode; connected to nats cluster: " + nats.DefaultURL)
+	} else {
+		fmt.Println("non-local mode")
+		nc, _ = nats.Connect("cakework-nats-cluster.internal")
+		fmt.Println("Non-local mode; connected to nats cluster: cakework-nats-cluster.internal")
+	}
 
 	// Creates JetStreamContext
 	js, err := nc.JetStream()
@@ -69,7 +86,7 @@ func main() {
          if err != nil {
             log.Fatal(err)
          }
-         log.Printf("UserId:%s, App: %s, Task:%s, Parameters: %s, RequestId: %s, Status: %s, Result: %s\n", taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.RequestId, taskRun.Status, taskRun.Result)
+         log.Printf("UserId: %s, App: %s, Task:%s, Parameters: %s, RequestId: %s, Status: %s, Result: %s\n", taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.RequestId, taskRun.Status, taskRun.Result)
          runTask(js, taskRun)
       }
    }
@@ -84,9 +101,16 @@ func checkErr(err error) {
 // reviewOrder reviews the order and publishes ORDERS.approved event
 func runTask(js nats.JetStreamContext, taskRun TaskRun) {
 	var conn *grpc.ClientConn
+
+	var endpoint string 
+
+	if local == true {
+		endpoint = "localhost:50051"
+	} else {
+		endpoint = taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
+	}
     // conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
-	// endpoint := "localhost:50051"
-	endpoint := taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
+	// endpoint := taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
 
     conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 
@@ -96,29 +120,20 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) {
 	defer conn.Close()
 
 	c := pb.NewCakeworkClient(conn)
+	fmt.Println("submitting task run")
+	fmt.Println(taskRun)
 
-	createReq := pb.Request{ Parameters: taskRun.Parameters }
+	createReq := pb.Request{ Parameters: taskRun.Parameters, UserId: taskRun.UserId, App: taskRun.App, RequestId: taskRun.RequestId }
+
 	response, err := c.RunActivity(context.Background(), &createReq)
 	if err != nil {
 		log.Fatalf("Error Cakework RunActivity: %s", err)
 	} else {
 		// successfully submitted; move to IN_PROGRESS
 		// note: the fly python grpc worker probably still need to be able to update the status
+		// what if this is updated to in progress but the python process sets to complete at the same time? should just let python deal with it.
+
+		log.Printf("Successfully submitted task to worker:  %s", response.Result) // don't really need this
+		// TODO: if fail, do not ack the request? but if we do so will the request get processed over and over again?
 	}
-	log.Printf("Response from worker: %s", response.Result)
-
-	
-	// Changing the Order status
-	// order.Status ="approved"
-
-	// TODO call fly
-	// for now, have this be synchronous and wait for fly results. in the future, do a fire and forget
-	// orderJSON, _ := json.Marshal(order)
-
-	// _, err := js.Publish(pubSubjectName, orderJSON)
-	// if err != nil {
-	//    log.Fatal(err)
-	// }
-	// log.Printf("Order with OrderID:%d has been %s\n",order.OrderID, order.Status)
-	// TODO here we will call the fly endpoint
  }
