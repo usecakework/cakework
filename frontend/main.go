@@ -424,6 +424,7 @@ func createOneOrder(js nats.JetStreamContext) error {
 
 func createTaskRun(taskRun TaskRun) error {
 	taskRunJSON, _ := json.Marshal(taskRun)
+
 	_, err := js.Publish(subjectName, taskRunJSON)
 	if err != nil {
 		fmt.Println("error while publishing")
@@ -462,7 +463,6 @@ func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
 		// }
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
 	} else {
-		fmt.Println("got task run: ")
 		if result.Valid {
 			taskRun.Result = result.String
 		}

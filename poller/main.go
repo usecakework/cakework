@@ -98,8 +98,14 @@ func poll(js nats.JetStreamContext) {
          msg.Ack()
          var taskRun TaskRun
          err := json.Unmarshal(msg.Data, &taskRun)
+
+
+		 // TODO delete this
+		 fmt.Println("got a task run")
+		 fmt.Println(taskRun)
          if err != nil {
-            log.Fatal(err)
+			fmt.Println(err)
+            // log.Fatal(err)
          }
          log.Printf("UserId: %s, App: %s, Task:%s, Parameters: %s, RequestId: %s, Status: %s, Result: %s\n", taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.RequestId, taskRun.Status, taskRun.Result)
          runTask(js, taskRun)
