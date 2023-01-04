@@ -127,7 +127,7 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
     // conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
 	// endpoint := taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
 
-    conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+    conn, err := grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool? 
 
 	if err != nil {
 		fmt.Printf("did not connect: %s", err)
@@ -138,7 +138,7 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 
 	c := pb.NewCakeworkClient(conn)
 	createReq := pb.Request{ Parameters: taskRun.Parameters, UserId: taskRun.UserId, App: taskRun.App, RequestId: taskRun.RequestId }
-	response, errRunActivity := c.RunActivity(context.Background(), &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!! 
+	_, errRunActivity := c.RunActivity(context.Background(), &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!! 
 	if errRunActivity != nil {
 		// TODO check what type of error. possible to see if it's an rpc error?
 		fmt.Println("Error Cakework RunActivity")
@@ -165,7 +165,7 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 		if err != nil { fmt.Println(err) }
 		u.Path = path.Join(u.Path, "update-status")
 
-		fmt.Println("calling url: " + u.String())
+		// fmt.Println("calling url: " + u.String())
 	
 		// 3.
 
@@ -197,9 +197,6 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 		log.Println(string(body))
 	
 
-
-
-
 		// TODO: need to log the error to a database so that the user can see if when they're querying for the status (and result?)
 		return errRunActivity
 		// instead of restarting the error by throwing a fatal, just do something with this. 
@@ -211,7 +208,10 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 		// note: the fly python grpc worker probably still need to be able to update the status
 		// what if this is updated to in progress but the python process sets to complete at the same time? should just let python deal with it.
 
-		log.Printf("Successfully submitted task to worker:  %s", response.Result) // don't really need this
+		// note: can ignore the response from the worker for now
+		log.Println("Successfully submitted task to worker") // don't really need this
+
+		// log.Printf("Successfully submitted task to worker:  %s", response.Result) // don't really need this
 		// TODO: if fail, do not ack the request? but if we do so will the request get processed over and over again?
 	}
 	return nil
