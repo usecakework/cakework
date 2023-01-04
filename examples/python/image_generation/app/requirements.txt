@@ -1,4 +1,4 @@
-cakework
+cakework=0.0.24
 banana_dev
 pillow
 boto3
