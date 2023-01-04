@@ -436,7 +436,7 @@ func createTaskRun(taskRun TaskRun) error {
 		query := "INSERT INTO `TaskRun` (`requestId`, `userId`, `app`, `task`, `parameters`, `status`) VALUES (?, ?, ?, ?, ?, ?)"
 		insertResult, err := db.ExecContext(context.Background(), query, taskRun.RequestId, taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.Status)
 		if err != nil {
-			log.Fatalf("impossible to insert : %s", err)
+			fmt.Printf("impossible to insert : %s", err)
 			return err
 		}
 		id, err := insertResult.LastInsertId()
