@@ -4,7 +4,6 @@ import base64
 from io import BytesIO
 from PIL import Image
 import boto3
-from botocore.exceptions import ClientError
 from nanoid import generate
 
 AWS_ACCESS_KEY_ID = "YOUR_ACCESS_KEY_ID"
@@ -54,21 +53,14 @@ def generate_prompt(object, style):
 
 # Run the image generation process and save to S3
 def generate_image(object, style):
-    try:
-        prompt = generate_prompt(object, style)
-        image = run_image_generation_model(prompt)
-        s3_location = upload_image(image)
-    except ClientError as clientError:
-        return {
-            "status": "FAILED",
-            "error": clientError.response
-        }
+    prompt = generate_prompt(object, style)
+    image = run_image_generation_model(prompt)
+    s3_location = upload_image(image)
 
     return {
-        "status":"SUCCEEDED",
         "s3Location": s3_location
     }
 
 if __name__ == "__main__":
     app = App("image_generation")
-    app.register_task(generate_image)
+    app.add_task(generate_image)

@@ -1,9 +1,10 @@
-cakework==0.0.24
-certifi==2022.12.7
-charset-normalizer==2.1.1
+banana-dev==4.0.0
+cakework==0.0.29
+certifi==2021.10.8
+charset-normalizer==2.0.7
 greenlet==2.0.1
 grpcio==1.51.1
-idna==3.4
+idna==3.3
 importlib-metadata==6.0.0
 jaraco.classes==3.2.3
 Jinja2==3.1.2
@@ -15,9 +16,9 @@ protobuf==4.21.12
 pynecone==0.0.70
 python-dotenv==0.21.0
 PyYAML==6.0
-requests==2.28.1
+requests==2.26.0
 requests-toolbelt==0.10.1
 SQLAlchemy==1.4.45
 tabulate==0.9.0
-urllib3==1.26.13
+urllib3==1.26.7
 zipp==3.11.0
