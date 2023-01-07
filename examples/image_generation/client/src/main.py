@@ -3,9 +3,10 @@ import time
 import json
 
 S3_BUCKET_URL = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/"
+CAKEWORK_CLIENT_TOKEN = "YOUR_CAKEWORK_CLIENT_TOKEN"
 
 if __name__ == "__main__":
-    client = Client("image_generation")
+    client = Client("image_generation", CAKEWORK_CLIENT_TOKEN)
     
     # You can persist this request ID to get status of the job later
     request_id = client.generate_image("cute piece of cake", "cartoon")
