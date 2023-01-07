@@ -91,7 +91,26 @@ type CreateClientTokenRequest struct {
 }
 
 type ClientToken struct {
+	Id string `json:"id"`
 	Token string `json:"token"`
+	UserId string `json:"userId"`
+	Name string `json:"name"`
+}
+
+type CreateUserRequest struct {
+	UserId string `json:"userId"`// TODO: auto-generate a user id in our system? 
+}
+
+type User struct {
+	Id string `json:"id"`
+}
+
+type GetUserByClientTokenRequest struct {
+	Token string `json:"token"`
+}
+
+type GetUserRequest struct {
+	UserId string `json:"userId"`
 }
 
 var db *sql.DB
@@ -143,7 +162,7 @@ func main() {
 
     // nc.Publish("foo", []byte("Hello World 3"))
 
-    dsn := "xodsymuvucvxj8a0fcvj:pscale_pw_wBKY0AVn5yilMTIVANcwmSxj2viJV76thiDTaNqHO96@tcp(us-west.connect.psdb.cloud)/sahale-application-db?tls=true"
+    dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true"
     // Open the connection
     db, err = sql.Open("mysql", dsn)
     if err != nil {
@@ -167,6 +186,9 @@ func main() {
     router.PATCH("/update-status", updateStatus)
 	router.PATCH("/update-result", updateResult)
 	router.POST("/create-client-token", createClientToken) // TODO protect this using auth0
+	router.POST("/create-user", createUser)
+	router.GET("/get-user-from-client-token", getUserFromClientToken)
+	router.GET("/get-user", getUser)
 	router.Run()
 }
 
@@ -374,6 +396,7 @@ func updateResult(c *gin.Context) {
 }
 
 
+
 // getAlbumByID locates the album whose ID value matches the id
 // parameter sent by the client, then returns that album as a response.
 // func getAlbumByID(c *gin.Context) {
@@ -526,6 +549,34 @@ func createClientToken(c *gin.Context) {
         return
     }
 
+	tokenId := (uuid.New()).String()
+	
+	clientToken := ClientToken {
+		Id: tokenId,
+		Token: token,
+		UserId: newRequest.UserId,
+		Name: newRequest.Name,
+	}
+
+	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`) VALUES (?, ?, ?, ?)"
+	insertResult, err := db.ExecContext(context.Background(), query, clientToken.Id, clientToken.Name, clientToken.Token, clientToken.UserId)
+	if err != nil {
+		fmt.Printf("impossible to insert : %s", err)
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+	}
+	id, err := insertResult.LastInsertId()
+	if err != nil {
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
+	} else {
+		log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+		log.Printf("Successfully inserted")
+		fmt.Println(clientToken)
+		c.IndentedJSON(http.StatusCreated, clientToken)
+	}
+
+
+
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
@@ -535,8 +586,98 @@ func createClientToken(c *gin.Context) {
 	
 	// TODO: insert the token into the database
 	// TODO handle error if can't create token
-	clientToken := ClientToken{
-		Token: token,
+
+}
+
+func createUser(c *gin.Context) {
+    var newRequest CreateUserRequest
+
+    if err := c.BindJSON(&newRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+    }
+
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
+
+	newUser := User {
+		Id: userId,
 	}
-	c.IndentedJSON(http.StatusCreated, clientToken)
+
+	query := "INSERT INTO `User` (`id`) VALUES (?)"
+	insertResult, err := db.ExecContext(context.Background(), query, newUser.Id)
+	if err != nil {
+		fmt.Printf("impossible to insert : %s", err)
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+	}
+	id, err := insertResult.LastInsertId()
+	if err != nil {
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
+	} else {
+		log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+		log.Printf("Successfully inserted")
+		c.IndentedJSON(http.StatusCreated, newUser)
+	}
+}
+
+func getUserFromClientToken(c *gin.Context) {
+	// fetch the client token by the token value
+	// return the user 
+    var newRequest GetUserByClientTokenRequest
+
+    if err := c.BindJSON(&newRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	var user User
+	err = db.QueryRow("SELECT userId FROM ClientToken where token = ?", newRequest.Token).Scan(&user.Id)
+	if err != nil {
+		// if err == sql.ErrNoRows {
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO check for if got no rows
+		// }
+		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
+	} else {
+		c.IndentedJSON(http.StatusOK, user)
+	}
+}
+
+func getUser(c *gin.Context) {
+	// err = createOrder(js)
+
+    var newRequest GetUserRequest
+
+    if err := c.BindJSON(&newRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
+
+	// TODO use the userId and app
+	var user User
+	err = db.QueryRow("SELECT id FROM User where id = ?", userId).Scan(&user.Id)
+	if err != nil {
+			if err == sql.ErrNoRows {
+				c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user with id not found"}) 
+			} else {
+				c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) 
+			}
+		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
+	} else {
+		fmt.Println("user")
+		fmt.Println(user)
+		c.IndentedJSON(http.StatusOK, user)
+	}
 }
