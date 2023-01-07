@@ -11,6 +11,6 @@ sample postman request to start-task:
     "userId": "Shared",
     "app": "app",
     "task": "sAy_hello",
-    "parameters": "{\"name\": \"jessie\"}"
+    "parameters": "[\"jessie\"]"
 }
 localhost:8080/start-task

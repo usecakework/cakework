@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -83,6 +85,15 @@ type UpdateResultRequest struct {
 	Result  string  `json:"result"`
 }
 
+type CreateClientTokenRequest struct {
+    UserId string `json:"userId"` // Q: can we get the user id from the auth info?
+    Name string `json:"name"`
+}
+
+type ClientToken struct {
+	Token string `json:"token"`
+}
+
 var db *sql.DB
 var err error
 
@@ -155,6 +166,7 @@ func main() {
     router.GET("/get-result", getResult) 
     router.PATCH("/update-status", updateStatus)
 	router.PATCH("/update-result", updateResult)
+	router.POST("/create-client-token", createClientToken) // TODO protect this using auth0
 	router.Run()
 }
 
@@ -496,4 +508,35 @@ func checkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func createClientToken(c *gin.Context) {
+    var newRequest CreateClientTokenRequest
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		fmt.Println("Failed to generate random token")
+		fmt.Println(err) // TODO return a custom http response
+	}
+
+	token := hex.EncodeToString(b)
+
+    if err := c.BindJSON(&newRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+        return
+    }
+
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	// userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
+
+	// generate 32 character token
+	
+	// TODO: insert the token into the database
+	// TODO handle error if can't create token
+	clientToken := ClientToken{
+		Token: token,
+	}
+	c.IndentedJSON(http.StatusCreated, clientToken)
 }
