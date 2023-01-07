@@ -5,6 +5,7 @@ from cakework import Client
 import asyncio
 import json
 
+CAKEWORK_CLIENT_TOKEN = "YOUR_CLIENT_TOKEN"
 S3_BUCKET_URL = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/"
 
 class State(pc.State):
@@ -17,7 +18,7 @@ class State(pc.State):
 
     def start_generate_image(self):
         # Start a Cakework task to generate an image
-        client = Client("image_generation")
+        client = Client("image_generation", CAKEWORK_CLIENT_TOKEN)
         request_id = client.generate_image(self.subject, "cartoon")
 
         with pc.session() as session:
@@ -30,7 +31,7 @@ class State(pc.State):
         return self.poll_for_statuses
 
     async def poll_for_statuses(self):
-        client = Client("image_generation")
+        client = Client("image_generation", CAKEWORK_CLIENT_TOKEN)
         requests = []
         with pc.session() as session:
             requests = (

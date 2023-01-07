@@ -1,33 +1,22 @@
-# Quick Start #
-## Install the cli ##
-```
-curl -L https://raw.githubusercontent.com/usecakework/cakeworkctl/main/install.sh | sh
-```
+# Hello World
 
-## Create a new project ##
-``` 
-cakework new my-app-name --lang python
-cd my-app-name
-```
+This example shows a simple Hello World app!
 
-## Optional: set up a virtual environment ##
-```
-python3 -m venv env
-source env/bin/activate
-```
+Check out the [Cakework docs](https://docs.cakework.com/) to learn more!
 
-## Install cakework module ##
-```
-pip3 install cakework
-```
+# Prerequisites
+1. [Install Cakework CLI](https://docs.cakework.com/reference/cli/installation).
+2. Sign up for Cakework with ```cakework signup```.
+3. Generate a Cakework client token with ```cakework create-client-token my-token```.
 
-## Start your app ##
-```
-cakework start
-```
+# Deploy the App
+Deploy the app with ```cakework deploy```.
 
-## Calling the app ##
-Refer to the tst/invoke_task.py for an example of how to invoke your running task. Modify the script to call your task and pass in parameters.
+# Run your task!
+1. Update ```src/main.py``` with your Cakework client token.
+2. Install dependencies and run the test script.
+
 ```
-python3 invoke_task.py
+pip3 install -r requirements.txt
+python3 tst/invoke_task.py
 ```

@@ -1,8 +1,10 @@
 from cakework import Client
 import time
 
+CAKEWORK_CLIENT_TOKEN = "YOUR_CLIENT_TOKEN_HERE"
+
 if __name__ == "__main__":
-    client = Client("hello_world")
+    client = Client("hello_world", CAKEWORK_CLIENT_TOKEN)
     
     request_id = client.say_hello("jessie")
     
