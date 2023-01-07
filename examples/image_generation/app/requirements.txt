@@ -1,7 +1,7 @@
 banana-dev==4.0.0
 boto3==1.26.43
 botocore==1.29.43
-cakework==0.0.30
+cakework==0.0.31
 certifi==2021.10.8
 charset-normalizer==2.0.7
 grpcio==1.51.1

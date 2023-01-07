@@ -4,7 +4,7 @@ import time
 if __name__ == "__main__":
     client = Client("hello_world")
     
-    request_id = client.say_hello(name="jessie")
+    request_id = client.say_hello("jessie")
     
     status = client.get_status(request_id)
     while (status == "PENDING" or status == "IN_PROGRESS"):
