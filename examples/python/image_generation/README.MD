@@ -1,28 +1,39 @@
-This example shows how you can build a webapp that generates an image from text using stable diffusion, and uploads that image to S3. The image generation task happens asynchronously and will persist through the user leaving the page. The entire task runs serverlessly through Cakework and Banana.
+This example shows how you can build a python app generates an image from text using stable diffusion, and uploads that image to S3. It also shows an example of doing this with a webapp. The image generation task runs serverlessly using Cakework and Banana, and returns an ID that you can use to track the status of an app.
 
 Check out the [Cakework docs](https://docs.cakework.com/) to learn more!
 
 # Prerequisites
-1. [Install Cakework](https://docs.cakework.com/reference/cli/installation)
-2. [Install Pynecone](https://pynecone.io/docs/getting-started/installation)
-3. [Run a Stable Diffusion Model on Banana](https://www.banana.dev/stable-diffusion)
-4. Have an AWS account
-5. Update app/main.py with your AWS and Banana secrets.
+1. [Install Cakework CLI](https://docs.cakework.com/reference/cli/installation)
+2. [Run a Stable Diffusion model on Banana](https://www.banana.dev/stable-diffusion)
+3. Have an AWS account with a public S3 bucket
+
+(To use the Web UI)
+4. [Install Pynecone](https://pynecone.io/docs/getting-started/installation)
+
+# Setup
+1. Update app/src/main.py with your AWS and Banana secrets.
+2. Update client/src/main.py with your S3 bucket URL.
+
+(To use the Web UI)
+3. Update frontend/src/main.py with your S3 bucket URL.
 
 # Run the Cakework App
 
-From the ```app``` directory:
+Sign up for Cakework and deploy the app from the ```app``` directory
 
 ```
-pip3 install requirements.txt
-cakework login
+cakework signup
+pip3 install -r requirements.txt
 cakework deploy
 ```
 
-You can test the task and see basic Cakework functionality (run a task, get status, get result) by running the test client from the ```app``` directory:
+# Run the Cakework Client 
+
+You can run the client from the ```client``` directory:
 
 ```
-python3 src/test_client.py
+pip3 install -r requirements.txt
+python3 src/main.py
 ```
 
 # Run the Webapp

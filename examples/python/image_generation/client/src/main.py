@@ -2,6 +2,8 @@ from cakework import Client
 import time
 import json
 
+S3_BUCKET_URL = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/"
+
 if __name__ == "__main__":
     client = Client("image_generation")
     
@@ -16,5 +18,5 @@ if __name__ == "__main__":
 
     if (client.get_status(request_id) == "SUCCEEDED"):
         result = json.loads(client.get_result(request_id))
-        url = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/" + result["s3Location"]
+        url = S3_BUCKET_URL + result["s3Location"]
         print(url)

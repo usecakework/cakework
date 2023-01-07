@@ -5,6 +5,8 @@ from cakework import Client
 import asyncio
 import json
 
+S3_BUCKET_URL = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/"
+
 class State(pc.State):
     """The app state."""
     subject: str
@@ -46,7 +48,7 @@ class State(pc.State):
             if status == "SUCCEEDED":
                 # Get the result from Cakework
                 result = json.loads(client.get_result(request.username))
-                download_url = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/" + result["s3Location"]
+                download_url = S3_BUCKET_URL + result["s3Location"]
                 image.append(download_url)
 
             imageDict[request.username] = image
