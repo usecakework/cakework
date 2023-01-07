@@ -1,4 +1,6 @@
-This example shows how you can build a python app generates an image from text using stable diffusion, and uploads that image to S3. It also shows an example of doing this with a webapp. The image generation task runs serverlessly using Cakework and Banana.
+# Serverless Image Generation
+
+This example shows how you can build a Python app that generates an image from text and uploads that image to S3. The image generation task runs serverlessly using Cakework and Banana. The example also shows how you can use Cakework in a webapp, that we built using Pynecone.
 
 Check out the [Cakework docs](https://docs.cakework.com/) to learn more!
 
