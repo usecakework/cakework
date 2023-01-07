@@ -13,7 +13,7 @@ Check out the [Cakework docs](https://docs.cakework.com/) to learn more!
 Deploy the app with ```cakework deploy```.
 
 # Run your task!
-1. Update ```src/main.py``` with your Cakework client token.
+1. Update ```tst/invoke_task.py``` with your Cakework client token.
 2. Install dependencies and run the test script.
 
 ```
