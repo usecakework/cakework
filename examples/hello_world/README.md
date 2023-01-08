@@ -20,3 +20,6 @@ Deploy the app with ```cakework deploy```.
 pip3 install -r requirements.txt
 python3 tst/invoke_task.py
 ```
+
+# Modifying the App
+Have fun and check out the [docs](https://docs.cakework.com/). Make sure you create a virtual env for the App before you deploy to Cakework.

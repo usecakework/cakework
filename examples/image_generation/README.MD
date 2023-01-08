@@ -38,3 +38,6 @@ pc run
 ```
 
 6. Go to ```localhost:3000``` in your browser and start making some pictures!
+
+# Modifying the App
+Have fun and check out the [docs](https://docs.cakework.com/). Make sure you create a virtual env for the App before you deploy to Cakework.
