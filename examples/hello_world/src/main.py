@@ -6,5 +6,5 @@ def say_hello(name):
     return "hello " + name
 
 if __name__ == "__main__":
-    app = Cakework("hello_world")
-    app.add_task(say_hello)
+    cakework = Cakework("hello_world")
+    cakework.add_task(say_hello)
