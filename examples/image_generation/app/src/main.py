@@ -1,4 +1,4 @@
-from cakework import App
+from cakework import Cakework
 import banana_dev as banana
 import base64
 from io import BytesIO
@@ -62,5 +62,5 @@ def generate_image(object, style):
     }
 
 if __name__ == "__main__":
-    app = App("image_generation")
+    app = Cakework("image_generation")
     app.add_task(generate_image)

@@ -1,4 +1,4 @@
-from cakework import App
+from cakework import Cakework
 import time
 
 def say_hello(name):
@@ -6,5 +6,5 @@ def say_hello(name):
     return "hello " + name
 
 if __name__ == "__main__":
-    app = App("hello_world")
+    app = Cakework("hello_world")
     app.add_task(say_hello)
