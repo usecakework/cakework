@@ -1,6 +1,6 @@
 anyio==3.6.2
 async-timeout==4.0.2
-cakework==0.0.31
+cakework==0.0.33
 certifi==2022.12.7
 charset-normalizer==2.1.1
 click==8.1.3
