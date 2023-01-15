@@ -684,10 +684,11 @@ func getUserFromClientToken(c *gin.Context) {
 	var user User
 	err = db.QueryRow("SELECT userId FROM ClientToken where token = ?", newRequest.Token).Scan(&user.Id)
 	if err != nil {
-		// if err == sql.ErrNoRows {
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO check for if got no rows
-		// }
-		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
+		if err.Error() == sql.ErrNoRows.Error() {
+			c.IndentedJSON(http.StatusBadRequest, "Invalid client token.")
+		} else {
+			c.IndentedJSON(http.StatusInternalServerError, "Something went wrong :( Please contact us.")
+		}
 	} else {
 		c.IndentedJSON(http.StatusOK, user)
 	}
