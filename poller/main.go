@@ -1,6 +1,5 @@
 package main
 
-// Q: should we just expose a gin gonic server with no methods?
 import (
 	"bytes"
 	pb "cakework/poller/proto/cakework"
@@ -23,7 +22,6 @@ import (
 
 const (
 	subSubjectName ="TASKS.created"
-	// pubSubjectName ="ORDERS.approved"
  
  )
 
@@ -74,7 +72,7 @@ func main() {
 	// Create Pull based consumer with maximum 128 inflight.
    // PullMaxWaiting defines the max inflight pull requests.
    go poll(js)
-//    gin.SetMode(gin.ReleaseMode)
+   gin.SetMode(gin.ReleaseMode)
    router := gin.Default()
 
    accessToken, refreshToken = getToken()
@@ -83,20 +81,12 @@ func main() {
 
 func poll(js nats.JetStreamContext) {
 	for {
-		// fmt.Println("starting new pull subscribe") 
 		// Q: should we be creating a new pullsubscribe each time?
 		sub, _ := js.PullSubscribe(subSubjectName, "submitted-tasks", nats.PullMaxWaiting(128))
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	 
 	    defer cancel()
-      /*select {
-      case <-ctx.Done():
-		 fmt.Println("ctx is done")
-		 fmt.Println("sleeping for 1 second")
-		 time.Sleep(1 * time.Second)
-        //  return
-      default:
-      }*/
+
       msgs, _ := sub.Fetch(10, nats.Context(ctx))
       for _, msg := range msgs {
          msg.Ack()
