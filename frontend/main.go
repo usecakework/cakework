@@ -10,13 +10,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
+	"net/url"
 	"strings"
 	"time"
 
+	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
+	"github.com/auth0/go-jwt-middleware/v2/jwks"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	adapter "github.com/gwatts/gin-adapter"
 	"github.com/nats-io/nats.go"
 )
 
@@ -118,6 +122,23 @@ var err error
 
 var js nats.JetStreamContext
 var local bool
+// CustomClaimsExample contains custom data we want from the token.
+type CustomClaimsExample struct {
+	Scope        string `json:"scope"`
+}
+// Validate errors out if `ShouldReject` is true.
+func (c *CustomClaimsExample) Validate(ctx context.Context) error {
+	// if c.ShouldReject {
+	// 	return errors.New("should reject was set to true")
+	// }
+	return nil
+}
+
+var customClaims = func() validator.CustomClaims {
+	return &CustomClaimsExample{}
+}
+
+
 
 func main() {
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
@@ -143,25 +164,6 @@ func main() {
 	err = createStream(js)
 	checkErr(err)
 
-	/*
-	// Creates stream
-	err = createStream(js)
-	checkErr(err)
-	// Create orders by publishing messages
-	err = createOrder(js)
-	checkErr(err)
-	*/
-
-    // // Simple Publisher
-    // nc.Publish("foo", []byte("Hello World"))
-
-    // // Simple Async Subscriber
-    // nc.Subscribe("foo", func(m *nats.Msg) {
-    //     fmt.Printf("Received a message: %s\n", string(m.Data))
-    // })
-
-    // nc.Publish("foo", []byte("Hello World 3"))
-
     dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true"
     // Open the connection
     db, err = sql.Open("mysql", dsn)
@@ -176,9 +178,30 @@ func main() {
     gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
-    // router.GET("/albums", getAlbums)
-    // router.GET("/albums/:id", getAlbumByID)
-    // Q: what is 204 no content?
+
+	// Recovery middleware recovers from any panics and writes a 500 if there was one.
+	router.Use(gin.Recovery())
+	router.Use(guidMiddleware())
+
+	// The issuer of our token.
+	issuerURL, _ := url.Parse("https://dev-qanxtedlpguucmz5.us.auth0.com/")
+
+	// The audience of our token.
+	audience := "https://cakework-frontend.fly.dev"
+
+	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
+
+    jwtValidator, _ := validator.New(provider.KeyFunc,
+        validator.RS256,
+        issuerURL.String(),
+        []string{audience},
+		validator.WithCustomClaims(customClaims),
+    )
+
+	jwtMiddleware := jwtmiddleware.New(jwtValidator.ValidateToken)
+
+    router.Use(adapter.Wrap(jwtMiddleware.CheckJWT))
+
     router.POST("/submit-task", submitTask)
 	// router.GET("/get-task", getTaskRun) //TODO we should probably have this
     router.GET("/get-status", getStatus) // TODO change to the syntax /status/:requestId? and /result/:requestId?
@@ -189,16 +212,62 @@ func main() {
 	router.POST("/create-user", createUser)
 	router.GET("/get-user-from-client-token", getUserFromClientToken)
 	router.GET("/get-user", getUser)
+	// TODO have an add-task
 	router.Run()
 }
 
-// // getAlbums responds with the list of all albums as JSON.
-// func getAlbums(c *gin.Context) {
-//     c.IndentedJSON(http.StatusOK, albums)
-// }
+func guidMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uuid := uuid.New()
+		c.Set("uuid", uuid)
+		fmt.Printf("The request with uuid %s is started \n", uuid)
+		c.Next()
+		fmt.Printf("The request with uuid %s is served \n", uuid)
+	}
+}
+
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uuid := uuid.New()
+		c.Set("uuid", uuid)
+		fmt.Printf("The request with uuid %s is started \n", uuid)
+		c.Next()
+		fmt.Printf("The request with uuid %s is served \n", uuid)
+	}
+}
 
 func submitTask(c *gin.Context) {
-	// err = createOrder(js)
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "submit:task") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
+
 
     var newTaskRequest TaskRequest
 
@@ -250,6 +319,37 @@ func submitTask(c *gin.Context) {
 }
 
 func getStatus(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "get:status") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
+
 	// err = createOrder(js)
 
     var newGetStatusRequest GetStatusRequest
@@ -280,10 +380,39 @@ func getStatus(c *gin.Context) {
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}   
-
 }
 
 func getResult(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "get:result") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
 
     var newGetResultRequest GetResultRequest
 
@@ -316,6 +445,36 @@ func getResult(c *gin.Context) {
 }
 
 func updateStatus(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "update:status") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
 
     var request UpdateStatusRequest
 
@@ -356,6 +515,36 @@ func updateStatus(c *gin.Context) {
 }
 
 func updateResult(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "update:result") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
 
     var request UpdateResultRequest
 
@@ -395,68 +584,7 @@ func updateResult(c *gin.Context) {
 	}
 }
 
-
-
-// getAlbumByID locates the album whose ID value matches the id
-// parameter sent by the client, then returns that album as a response.
-// func getAlbumByID(c *gin.Context) {
-//     id := c.Param("id")
-
-//     // Loop through the list of albums, looking for
-//     // an album whose ID value matches the parameter.
-//     for _, a := range albums {
-//         if a.ID == id {
-//             c.IndentedJSON(http.StatusOK, a)
-//             return
-//         }
-//     }
-//     c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
-// }
-
-type Order struct {
-	OrderID    int
-	CustomerID string
-	Status     string
-}
-
-// createOrder publishes stream of events
-// with subject "ORDERS.created"
-func createOrder(js nats.JetStreamContext) error {
-	var order Order
-	for i := 1; i <= 10; i++ {
-		order = Order{
-			OrderID:    i,
-			CustomerID: "Cust-" + strconv.Itoa(i),
-			Status:     "created",
-		}
-		orderJSON, _ := json.Marshal(order)
-		_, err := js.Publish(subjectName, orderJSON)
-		if err != nil {
-			return err
-		}
-		log.Printf("Order with OrderID:%d has been published\n", i)
-	}
-	return nil
-}
-
-func createOneOrder(js nats.JetStreamContext) error {
-	var order Order
-	for i := 1; i <= 2; i++ {
-		order = Order{
-			OrderID:    i,
-			CustomerID: "Cust-" + strconv.Itoa(i),
-			Status:     "created",
-		}
-		orderJSON, _ := json.Marshal(order)
-		_, err := js.Publish(subjectName, orderJSON)
-		if err != nil {
-			return err
-		}
-		log.Printf("Order with OrderID:%d has been published\n", i)
-	}
-	return nil
-}
-
+// no need to add scope checking here, as this is not directly invoked by a route
 func createTaskRun(taskRun TaskRun) error {
 	taskRunJSON, _ := json.Marshal(taskRun)
 
@@ -488,6 +616,7 @@ func createTaskRun(taskRun TaskRun) error {
 }
 
 func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
+	
 	// TODO use the userId and app
 	var taskRun TaskRun
 	var result sql.NullString
@@ -533,7 +662,42 @@ func checkErr(err error) {
 	}
 }
 
+// TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0? 
+// if the frontend api is locked down now, how will the client call the frontend? 
 func createClientToken(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	fmt.Println("TODO delete print claims")
+	fmt.Println(customClaims)
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "create:client_token") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
+
     var newRequest CreateClientTokenRequest
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -590,6 +754,37 @@ func createClientToken(c *gin.Context) {
 }
 
 func createUser(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "create:user") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
+
     var newRequest CreateUserRequest
 
     if err := c.BindJSON(&newRequest); err != nil {
@@ -625,6 +820,37 @@ func createUser(c *gin.Context) {
 }
 
 func getUserFromClientToken(c *gin.Context) {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "get:user_from_client_token") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
+
 	// fetch the client token by the token value
 	// return the user 
     var newRequest GetUserByClientTokenRequest
@@ -650,7 +876,36 @@ func getUserFromClientToken(c *gin.Context) {
 }
 
 func getUser(c *gin.Context) {
-	// err = createOrder(js)
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return
+	}
+
+	if !strings.Contains(customClaims.Scope, "get:user") {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return
+	}
 
     var newRequest GetUserRequest
 
