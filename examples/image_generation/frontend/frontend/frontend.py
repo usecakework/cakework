@@ -5,7 +5,7 @@ from cakework import Client
 import asyncio
 import json
 
-CAKEWORK_CLIENT_TOKEN = "YOUR_CLIENT_TOKEN"
+CAKEWORK_CLIENT_TOKEN = "3a6fb65215aa7b4e0054b8491dbb65eff8f508e8b482471d616ae589a030959e"
 S3_BUCKET_URL = "https://cakework-public-examples.s3.us-west-2.amazonaws.com/"
 
 class State(pc.State):
