@@ -31,78 +31,79 @@ const (
 )
 
 type task struct {
-    ID     string  `json:"id"`
-    Parameters  string  `json:"parameters"`
-    Status string  `json:"status"`
-    Result  string `json:"result"`
+	ID         string `json:"id"`
+	Parameters string `json:"parameters"`
+	Status     string `json:"status"`
+	Result     string `json:"result"`
 }
 
 type TaskRequest struct {
-    UserId     string  `json:"userId"`
-	App	string `json:"app"`
-	Task string `json:"task"`
-    Parameters  string  `json:"parameters"`
+	UserId     string `json:"userId"`
+	App        string `json:"app"`
+	Task       string `json:"task"`
+	Parameters string `json:"parameters"`
 }
 
 // Q: how to share this type with the poller class?
 type TaskRun struct {
-    UserId     string  `json:"userId"`
-	App	string `json:"app"`
-	Task string `json:"task"`
-    Parameters  string  `json:"parameters"`
-	RequestId     string  `json:"requestId"`
-	Status	string `json:"status"`
-	Result  string  `json:"result"`
+	UserId     string `json:"userId"`
+	App        string `json:"app"`
+	Task       string `json:"task"`
+	Parameters string `json:"parameters"`
+	RequestId  string `json:"requestId"`
+	Status     string `json:"status"`
+	Result     string `json:"result"`
 }
 
 type GetStatusRequest struct {
-    UserId     string  `json:"userId"`
-	App	string `json:"app"`
-    RequestId  string  `json:"requestId"`
+	UserId    string `json:"userId"`
+	App       string `json:"app"`
+	RequestId string `json:"requestId"`
 }
 
 type GetStatusResponse struct {
-    Status     string  `json:"status"`
+	Status string `json:"status"`
 }
 
 type GetResultRequest struct {
-    UserId     string  `json:"userId"`
-	App	string `json:"app"`
-    RequestId  string  `json:"requestId"`
+	UserId    string `json:"userId"`
+	App       string `json:"app"`
+	RequestId string `json:"requestId"`
 }
+
 // Q: how will errors be handled? TODO need to expose an error field?
 type GetResultResponse struct {
-    Result     string  `json:"result"`
+	Result string `json:"result"`
 }
 
 type UpdateStatusRequest struct {
-	UserId     string  `json:"userId"`
-	App	string `json:"app"`
-    RequestId  string  `json:"requestId"`
-	Status  string  `json:"status"`
+	UserId    string `json:"userId"`
+	App       string `json:"app"`
+	RequestId string `json:"requestId"`
+	Status    string `json:"status"`
 }
 
 type UpdateResultRequest struct {
-	UserId     string  `json:"userId"`
-	App	string `json:"app"`
-    RequestId  string  `json:"requestId"`
-	Result  string  `json:"result"`
+	UserId    string `json:"userId"`
+	App       string `json:"app"`
+	RequestId string `json:"requestId"`
+	Result    string `json:"result"`
 }
 
 type CreateClientTokenRequest struct {
-    UserId string `json:"userId"` // Q: can we get the user id from the auth info?
-    Name string `json:"name"`
+	UserId string `json:"userId"` // Q: can we get the user id from the auth info?
+	Name   string `json:"name"`
 }
 
 type ClientToken struct {
-	Id string `json:"id"`
-	Token string `json:"token"`
+	Id     string `json:"id"`
+	Token  string `json:"token"`
 	UserId string `json:"userId"`
-	Name string `json:"name"`
+	Name   string `json:"name"`
 }
 
 type CreateUserRequest struct {
-	UserId string `json:"userId"`// TODO: auto-generate a user id in our system? 
+	UserId string `json:"userId"` // TODO: auto-generate a user id in our system?
 }
 
 type User struct {
@@ -117,15 +118,23 @@ type GetUserRequest struct {
 	UserId string `json:"userId"`
 }
 
+type GetTaskStatusRequest struct {
+	UserId string `json:"userId"`
+	App    string `json:"app"`
+	Task   string `json:"task"`
+}
+
 var db *sql.DB
 var err error
 
 var js nats.JetStreamContext
 var local bool
+
 // CustomClaimsExample contains custom data we want from the token.
 type CustomClaimsExample struct {
-	Scope        string `json:"scope"`
+	Scope string `json:"scope"`
 }
+
 // Validate errors out if `ShouldReject` is true.
 func (c *CustomClaimsExample) Validate(ctx context.Context) error {
 	// if c.ShouldReject {
@@ -137,8 +146,6 @@ func (c *CustomClaimsExample) Validate(ctx context.Context) error {
 var customClaims = func() validator.CustomClaims {
 	return &CustomClaimsExample{}
 }
-
-
 
 func main() {
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
@@ -154,7 +161,7 @@ func main() {
 		nc, _ = nats.Connect("cakework-nats-cluster.internal")
 		fmt.Println("Non-local mode; connected to nats cluster: cakework-nats-cluster.internal")
 	}
-    
+
 	// Creates JetStreamContext
 	js, err = nc.JetStream()
 	checkErr(err)
@@ -164,18 +171,18 @@ func main() {
 	err = createStream(js)
 	checkErr(err)
 
-    dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true"
-    // Open the connection
-    db, err = sql.Open("mysql", dsn)
-    if err != nil {
-        log.Fatalf("impossible to create the connection: %s", err)
-    }
-    defer db.Close()
-    db.SetConnMaxLifetime(time.Minute * 3)
-    db.SetMaxOpenConns(10)
-    db.SetMaxIdleConns(10)
+	dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true"
+	// Open the connection
+	db, err = sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatalf("impossible to create the connection: %s", err)
+	}
+	defer db.Close()
+	db.SetConnMaxLifetime(time.Minute * 3)
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(10)
 
-    gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
 
@@ -191,27 +198,28 @@ func main() {
 
 	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
 
-    jwtValidator, _ := validator.New(provider.KeyFunc,
-        validator.RS256,
-        issuerURL.String(),
-        []string{audience},
+	jwtValidator, _ := validator.New(provider.KeyFunc,
+		validator.RS256,
+		issuerURL.String(),
+		[]string{audience},
 		validator.WithCustomClaims(customClaims),
-    )
+	)
 
 	jwtMiddleware := jwtmiddleware.New(jwtValidator.ValidateToken)
 
-    router.Use(adapter.Wrap(jwtMiddleware.CheckJWT))
+	router.Use(adapter.Wrap(jwtMiddleware.CheckJWT))
 
-    router.POST("/submit-task", submitTask)
+	router.POST("/submit-task", submitTask)
 	// router.GET("/get-task", getTaskRun) //TODO we should probably have this
-    router.GET("/get-status", getStatus) // TODO change to the syntax /status/:requestId? and /result/:requestId?
-    router.GET("/get-result", getResult) 
-    router.PATCH("/update-status", updateStatus)
-	router.PATCH("/update-result", updateResult)
-	router.POST("/create-client-token", createClientToken) // TODO protect this using auth0
-	router.POST("/create-user", createUser)
-	router.GET("/get-user-from-client-token", getUserFromClientToken)
-	router.GET("/get-user", getUser)
+	router.GET("/get-status", getStatus)                              // TODO change to GET /request/status/requestId
+	router.GET("/get-result", getResult)                              // TODO change to GET /request/result/requestId
+	router.PATCH("/update-status", updateStatus)                      // TODO change to POST /request/status/requestId
+	router.PATCH("/update-result", updateResult)                      // TODO change to POST /request/result/requestId
+	router.POST("/create-client-token", createClientToken)            // TODO change to POST /client-token // TODO protect this using auth0
+	router.POST("/create-user", createUser)                           // TODO change to POST /user
+	router.GET("/get-user-from-client-token", getUserFromClientToken) // TODO change to GET /user with parameters/query string
+	router.GET("/get-user", getUser)                                  // TODO change to GET /user
+	router.GET("/task/logs", handleGetTaskLogs)
 	// TODO have an add-task
 	router.Run()
 }
@@ -237,45 +245,17 @@ func authMiddleware() gin.HandlerFunc {
 }
 
 func submitTask(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "submit:task") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var newTaskRequest TaskRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "submit:task") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-
-    var newTaskRequest TaskRequest
-
-    if err := c.BindJSON(&newTaskRequest); err != nil {
+	if err := c.BindJSON(&newTaskRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
@@ -284,15 +264,15 @@ func submitTask(c *gin.Context) {
 	app := strings.Replace(strings.ToLower(newTaskRequest.App), "_", "-", -1)
 	task := strings.Replace(strings.ToLower(newTaskRequest.Task), "_", "-", -1)
 
-	newTaskRun := TaskRun {
-		UserId: userId,
-		App: app,
-		Task: task,
+	newTaskRun := TaskRun{
+		UserId:     userId,
+		App:        app,
+		Task:       task,
 		Parameters: newTaskRequest.Parameters,
-		RequestId: (uuid.New()).String(),
-		Status: "PENDING",
+		RequestId:  (uuid.New()).String(),
+		Status:     "PENDING",
 	}
-	
+
 	// enqueue this message
 	if createTaskRun(newTaskRun) != nil { // TODO check whether this is an err; if so, return different status code
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
@@ -301,70 +281,71 @@ func submitTask(c *gin.Context) {
 	}
 	// store this into the database
 
-    // query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
-    // insertResult, err := db.ExecContext(context.Background(), query, newTaskRequest.ID, newTaskRequest.Status, newTaskRequest.Parameters)
-    // if err != nil {
-    //     log.Fatalf("impossible to insert : %s", err)
-    // }
-    // id, err := insertResult.LastInsertId()
-    // if err != nil {
-    //     log.Fatalf("impossible to retrieve last inserted id: %s", err)
-    // }
-    // log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+	// query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
+	// insertResult, err := db.ExecContext(context.Background(), query, newTaskRequest.ID, newTaskRequest.Status, newTaskRequest.Parameters)
+	// if err != nil {
+	//     log.Fatalf("impossible to insert : %s", err)
+	// }
+	// id, err := insertResult.LastInsertId()
+	// if err != nil {
+	//     log.Fatalf("impossible to retrieve last inserted id: %s", err)
+	// }
+	// log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
 
-    // TODO enqueue the task into NATS
+	// TODO enqueue the task into NATS
 
 	// ok that for post that we return something different?
-    
+
+}
+
+func handleGetTaskLogs(c *gin.Context) {
+	if !isAuthed(c, "get:task_status") {
+		return
+	}
+
+	var newGetTaskStatusRequest GetTaskStatusRequest
+
+	if err := c.BindJSON(&newGetTaskStatusRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+		return
+	}
+
+	userId := sanitizeUserId(newGetTaskStatusRequest.UserId)
+	app := sanitizeAppName(newGetTaskStatusRequest.App)
+	task := sanitizeTaskName(newGetTaskStatusRequest.Task)
+
+	taskStatus, err := getTaskStatus(db, userId, app, task)
+
+	// return task not found properly
+
+	if err != nil {
+		fmt.Println("Error when getting task logs")
+		fmt.Println(err)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "sorry :( something broke, come talk to us"})
+	}
+
+	c.IndentedJSON(http.StatusOK, taskStatus)
 }
 
 func getStatus(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "get:status") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var newGetStatusRequest GetStatusRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "get:status") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-	// err = createOrder(js)
-
-    var newGetStatusRequest GetStatusRequest
-
-    if err := c.BindJSON(&newGetStatusRequest); err != nil {
+	if err := c.BindJSON(&newGetStatusRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
-	userId := strings.Replace(strings.ToLower(newGetStatusRequest.UserId), "_", "-", -1)
-	app := strings.Replace(strings.ToLower(newGetStatusRequest.App), "_", "-", -1)
+	userId := sanitizeUserId(newGetStatusRequest.UserId)
+	app := sanitizeAppName(newGetStatusRequest.App)
 
 	taskRun, err := getTaskRun(userId, app, newGetStatusRequest.RequestId)
 	if err != nil {
@@ -379,48 +360,21 @@ func getStatus(c *gin.Context) {
 			Status: taskRun.Status,
 		}
 		c.IndentedJSON(http.StatusOK, response)
-	}   
+	}
 }
 
 func getResult(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "get:result") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var newGetResultRequest GetResultRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "get:result") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-    var newGetResultRequest GetResultRequest
-
-    if err := c.BindJSON(&newGetResultRequest); err != nil {
+	if err := c.BindJSON(&newGetResultRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
@@ -441,48 +395,21 @@ func getResult(c *gin.Context) {
 			Result: taskRun.Result,
 		}
 		c.IndentedJSON(http.StatusOK, response)
-	}   
+	}
 }
 
 func updateStatus(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "update:status") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var request UpdateStatusRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "update:status") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-    var request UpdateStatusRequest
-
-    if err := c.BindJSON(&request); err != nil {
+	if err := c.BindJSON(&request); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO verify that we aren't overwriting anything
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
@@ -497,7 +424,7 @@ func updateStatus(c *gin.Context) {
 
 	res, e := stmt.Exec(request.Status, request.RequestId)
 	checkErr(e)
-	
+
 	a, e := res.RowsAffected()
 	checkErr(e)
 	fmt.Printf("Updated %d rows", a)
@@ -505,54 +432,27 @@ func updateStatus(c *gin.Context) {
 		// nothing was updated; row not found most likely (though can be due to some other error)
 		fmt.Println("nothing was updated")
 		c.Status(http.StatusNotFound)
-	} else {		
+	} else {
 		if err != nil {
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
-		}   
+		}
 	}
 }
 
 func updateResult(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "update:result") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var request UpdateResultRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "update:result") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-    var request UpdateResultRequest
-
-    if err := c.BindJSON(&request); err != nil {
+	if err := c.BindJSON(&request); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO verify that we aren't overwriting anything
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
@@ -567,7 +467,7 @@ func updateResult(c *gin.Context) {
 
 	res, e := stmt.Exec(request.Result, request.RequestId)
 	checkErr(e)
-	
+
 	a, e := res.RowsAffected()
 	checkErr(e)
 	fmt.Printf("Updated %d rows", a)
@@ -575,12 +475,12 @@ func updateResult(c *gin.Context) {
 		// nothing was updated; row not found most likely (though can be due to some other error)
 		fmt.Println("nothing was updated")
 		c.Status(http.StatusNotFound)
-	} else {		
+	} else {
 		if err != nil {
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
-		}   
+		}
 	}
 }
 
@@ -616,7 +516,7 @@ func createTaskRun(taskRun TaskRun) error {
 }
 
 func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
-	
+
 	// TODO use the userId and app
 	var taskRun TaskRun
 	var result sql.NullString
@@ -633,8 +533,8 @@ func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
 		fmt.Println(taskRun)
 		return taskRun, nil
 	}
-	
-} 
+
+}
 
 // createStream creates a stream by using JetStreamContext
 func createStream(js nats.JetStreamContext) error {
@@ -662,43 +562,14 @@ func checkErr(err error) {
 	}
 }
 
-// TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0? 
-// if the frontend api is locked down now, how will the client call the frontend? 
+// TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0?
+// if the frontend api is locked down now, how will the client call the frontend?
 func createClientToken(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "create:client_token") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
-
-	fmt.Println("TODO delete print claims")
-	fmt.Println(customClaims)
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "create:client_token") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-    var newRequest CreateClientTokenRequest
+	var newRequest CreateClientTokenRequest
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		fmt.Println("Failed to generate random token")
@@ -707,19 +578,19 @@ func createClientToken(c *gin.Context) {
 
 	token := hex.EncodeToString(b)
 
-    if err := c.BindJSON(&newRequest); err != nil {
+	if err := c.BindJSON(&newRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	tokenId := (uuid.New()).String()
-	
-	clientToken := ClientToken {
-		Id: tokenId,
-		Token: token,
+
+	clientToken := ClientToken{
+		Id:     tokenId,
+		Token:  token,
 		UserId: newRequest.UserId,
-		Name: newRequest.Name,
+		Name:   newRequest.Name,
 	}
 
 	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`) VALUES (?, ?, ?, ?)"
@@ -739,66 +610,37 @@ func createClientToken(c *gin.Context) {
 		c.IndentedJSON(http.StatusCreated, clientToken)
 	}
 
-
-
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
 	// userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
 
 	// generate 32 character token
-	
+
 	// TODO: insert the token into the database
 	// TODO handle error if can't create token
 
 }
 
 func createUser(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "create:user") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var newRequest CreateUserRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "create:user") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-    var newRequest CreateUserRequest
-
-    if err := c.BindJSON(&newRequest); err != nil {
+	if err := c.BindJSON(&newRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
-    }
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
 	userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
 
-	newUser := User {
+	newUser := User{
 		Id: userId,
 	}
 
@@ -820,46 +662,19 @@ func createUser(c *gin.Context) {
 }
 
 func getUserFromClientToken(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
-		return
-	}
-
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
-
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "get:user_from_client_token") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+	if !isAuthed(c, "get:user_from_client_token") {
 		return
 	}
 
 	// fetch the client token by the token value
-	// return the user 
-    var newRequest GetUserByClientTokenRequest
+	// return the user
+	var newRequest GetUserByClientTokenRequest
 
-    if err := c.BindJSON(&newRequest); err != nil {
+	if err := c.BindJSON(&newRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
@@ -876,44 +691,17 @@ func getUserFromClientToken(c *gin.Context) {
 }
 
 func getUser(c *gin.Context) {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
+	if !isAuthed(c, "get:user") {
 		return
 	}
 
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return
-	}
+	var newRequest GetUserRequest
 
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return
-	}
-
-	if !strings.Contains(customClaims.Scope, "get:user") {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return
-	}
-
-    var newRequest GetUserRequest
-
-    if err := c.BindJSON(&newRequest); err != nil {
+	if err := c.BindJSON(&newRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
-        return
-    }
+		return
+	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
@@ -924,15 +712,50 @@ func getUser(c *gin.Context) {
 	var user User
 	err = db.QueryRow("SELECT id FROM User where id = ?", userId).Scan(&user.Id)
 	if err != nil {
-			if err == sql.ErrNoRows {
-				c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user with id not found"}) 
-			} else {
-				c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) 
-			}
+		if err == sql.ErrNoRows {
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user with id not found"})
+		} else {
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		}
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
 	} else {
 		fmt.Println("user")
 		fmt.Println(user)
 		c.IndentedJSON(http.StatusOK, user)
 	}
+}
+
+func isAuthed(c *gin.Context, scope string) bool {
+	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to get validated JWT claims."},
+		)
+		return false
+	}
+
+	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
+	if !ok {
+		c.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
+		)
+		return false
+	}
+
+	if len(customClaims.Scope) == 0 {
+		c.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			map[string]string{"message": "Scope in JWT claims was empty."},
+		)
+		return false
+	}
+
+	if !strings.Contains(customClaims.Scope, scope) {
+		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
+		return false
+	}
+
+	return true
 }
