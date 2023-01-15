@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"time"
 )
 
 type Request struct {
@@ -9,6 +10,8 @@ type Request struct {
 	Status     string `json:"status"`
 	Parameters string `json:"parameters"`
 	Result     string `json:"result"`
+	CreatedAt  int64  `json:"created_at"`
+	UpdatedAt  int64  `json:"updated_at"`
 }
 
 type TaskStatus struct {
@@ -18,7 +21,7 @@ type TaskStatus struct {
 func getTaskStatus(db *sql.DB, userId string, appName string, taskName string) (TaskStatus, error) {
 	var requests []Request
 
-	rows, err := db.Query("SELECT requestId, status, parameters, result FROM TaskRun where userId = ? AND app = ? AND task = ? LIMIT 100", userId, appName, taskName)
+	rows, err := db.Query("SELECT requestId, status, parameters, result, createdAt, updatedAt FROM TaskRun where userId = ? AND app = ? AND task = ? ORDER BY updatedAt DESC LIMIT 100", userId, appName, taskName)
 	if err != nil {
 		return TaskStatus{
 			Requests: requests,
@@ -29,13 +32,18 @@ func getTaskStatus(db *sql.DB, userId string, appName string, taskName string) (
 
 	for rows.Next() {
 		var result sql.NullString
+		var createdAt time.Time
+		var updatedAt time.Time
 		var request Request
-		if err := rows.Scan(&request.RequestId, &request.Status, &request.Parameters, &result); err != nil {
+		if err := rows.Scan(&request.RequestId, &request.Status, &request.Parameters, &result, &createdAt, &updatedAt); err != nil {
 			return TaskStatus{Requests: requests}, err
 		}
 		if result.Valid {
 			request.Result = result.String
 		}
+		request.CreatedAt = createdAt.Unix()
+		request.UpdatedAt = updatedAt.Unix()
+
 		requests = append(requests, request)
 	}
 

@@ -171,7 +171,7 @@ func main() {
 	err = createStream(js)
 	checkErr(err)
 
-	dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true"
+	dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true&parseTime=true"
 	// Open the connection
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
