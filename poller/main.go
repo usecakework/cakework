@@ -47,6 +47,8 @@ type UpdateStatusRequest struct {
 var local bool
 var frontendUrl string
 
+var accessToken, refreshToken string
+
 func main() {
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	flag.Parse()
@@ -74,6 +76,8 @@ func main() {
    go poll(js)
 //    gin.SetMode(gin.ReleaseMode)
    router := gin.Default()
+
+   accessToken, refreshToken = getToken()
    router.Run(":8081")
 }
 
@@ -177,8 +181,20 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 
 		req, err := http.NewRequest(http.MethodPatch, u.String(), bytes.NewBuffer(jsonReq))
 		req.Header.Set("Content-Type", "application/json")
+		
+		// check that we have a non-expired access token
+		if isTokenExpired(accessToken) {
+			fmt.Println("Refreshing tokens")
+			accessToken, refreshToken = refreshTokens(refreshToken)
+			if accessToken == "" || refreshToken == "" {
+				panic("Failed to refresh tokens")
+			} else {
+				fmt.Println("Refreshed tokens")
+			}
+		}
+
+		req.Header.Set("Authorization", "Bearer " + accessToken)
 		if err != nil {
-			// log.Fatal(err)
 			fmt.Println(err)
 		}
 	
