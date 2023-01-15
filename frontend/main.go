@@ -118,10 +118,11 @@ type GetUserRequest struct {
 	UserId string `json:"userId"`
 }
 
-type GetTaskStatusRequest struct {
-	UserId string `json:"userId"`
-	App    string `json:"app"`
-	Task   string `json:"task"`
+type GetTaskLogsRequest struct {
+	UserId       string `json:"userId"`
+	App          string `json:"app"`
+	Task         string `json:"task"`
+	StatusFilter string `json:"status_filter"`
 }
 
 var db *sql.DB
@@ -303,19 +304,20 @@ func handleGetTaskLogs(c *gin.Context) {
 		return
 	}
 
-	var newGetTaskStatusRequest GetTaskStatusRequest
+	var newGetTaskLogsRequest GetTaskLogsRequest
 
-	if err := c.BindJSON(&newGetTaskStatusRequest); err != nil {
+	if err := c.BindJSON(&newGetTaskLogsRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
 		return
 	}
 
-	userId := sanitizeUserId(newGetTaskStatusRequest.UserId)
-	app := sanitizeAppName(newGetTaskStatusRequest.App)
-	task := sanitizeTaskName(newGetTaskStatusRequest.Task)
+	userId := sanitizeUserId(newGetTaskLogsRequest.UserId)
+	app := sanitizeAppName(newGetTaskLogsRequest.App)
+	task := sanitizeTaskName(newGetTaskLogsRequest.Task)
+	statusFilter := newGetTaskLogsRequest.StatusFilter
 
-	taskStatus, err := getTaskStatus(db, userId, app, task)
+	taskLogs, err := getTaskLogs(db, userId, app, task, statusFilter)
 
 	// return task not found properly
 
@@ -325,7 +327,7 @@ func handleGetTaskLogs(c *gin.Context) {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "sorry :( something broke, come talk to us"})
 	}
 
-	c.IndentedJSON(http.StatusOK, taskStatus)
+	c.IndentedJSON(http.StatusOK, taskLogs)
 }
 
 func getStatus(c *gin.Context) {
@@ -585,6 +587,7 @@ func createClientToken(c *gin.Context) {
 	}
 
 	tokenId := (uuid.New()).String()
+	updatedAt := time.Now()
 
 	clientToken := ClientToken{
 		Id:     tokenId,
@@ -593,8 +596,8 @@ func createClientToken(c *gin.Context) {
 		Name:   newRequest.Name,
 	}
 
-	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`) VALUES (?, ?, ?, ?)"
-	insertResult, err := db.ExecContext(context.Background(), query, clientToken.Id, clientToken.Name, clientToken.Token, clientToken.UserId)
+	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`, `updatedAt`) VALUES (?, ?, ?, ?, ?)"
+	insertResult, err := db.ExecContext(context.Background(), query, clientToken.Id, clientToken.Name, clientToken.Token, clientToken.UserId, updatedAt)
 	if err != nil {
 		fmt.Printf("impossible to insert : %s", err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})

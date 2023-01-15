@@ -14,16 +14,24 @@ type Request struct {
 	UpdatedAt  int64  `json:"updated_at"`
 }
 
-type TaskStatus struct {
+type TaskLogs struct {
 	Requests []Request `json:"requests"`
 }
 
-func getTaskStatus(db *sql.DB, userId string, appName string, taskName string) (TaskStatus, error) {
+func getTaskLogs(db *sql.DB, userId string, appName string, taskName string, statusFilter string) (TaskLogs, error) {
 	var requests []Request
 
-	rows, err := db.Query("SELECT requestId, status, parameters, result, createdAt, updatedAt FROM TaskRun where userId = ? AND app = ? AND task = ? ORDER BY updatedAt DESC LIMIT 100", userId, appName, taskName)
+	var rows *sql.Rows
+	var err error
+
+	if statusFilter == "" {
+		rows, err = db.Query("SELECT requestId, status, parameters, result, createdAt, updatedAt FROM TaskRun where userId = ? AND app = ? AND task = ? ORDER BY updatedAt DESC LIMIT 100", userId, appName, taskName)
+	} else {
+		rows, err = db.Query("SELECT requestId, status, parameters, result, createdAt, updatedAt FROM TaskRun where userId = ? AND app = ? AND task = ? AND status = ? ORDER BY updatedAt DESC LIMIT 100", userId, appName, taskName, statusFilter)
+	}
+
 	if err != nil {
-		return TaskStatus{
+		return TaskLogs{
 			Requests: requests,
 		}, err
 	}
@@ -36,7 +44,7 @@ func getTaskStatus(db *sql.DB, userId string, appName string, taskName string) (
 		var updatedAt time.Time
 		var request Request
 		if err := rows.Scan(&request.RequestId, &request.Status, &request.Parameters, &result, &createdAt, &updatedAt); err != nil {
-			return TaskStatus{Requests: requests}, err
+			return TaskLogs{Requests: requests}, err
 		}
 		if result.Valid {
 			request.Result = result.String
@@ -48,12 +56,12 @@ func getTaskStatus(db *sql.DB, userId string, appName string, taskName string) (
 	}
 
 	if err = rows.Err(); err != nil {
-		return TaskStatus{
+		return TaskLogs{
 			Requests: requests,
 		}, err
 	}
 
-	return TaskStatus{
+	return TaskLogs{
 		Requests: requests,
 	}, nil
 }
