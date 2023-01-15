@@ -6,6 +6,9 @@ protoc --go_out=. --go_opt=paths=source_relative \
    proto/cakework/cakework.proto
 ```
 
-go run main.go -local
+Running locally:
+First spin up a nats jetstream endpoint on port 4222
+Then run:
+go build -o main && ./main -local
 
 TODO: figure out why we need to manually modify the generated cakework files
