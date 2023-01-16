@@ -1,0 +1,111 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    # main: frontend.go status.go http.go auth.go ./cakework.go
+      # the name of the binary that you want to generate - this will also be the binary name for when we get to homebrew...
+      # Example: ms checkin <code> where ms is the name of the binary
+    binary: cakework
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+brews:
+  -
+    tap:
+      owner: usecakework
+      name: homebrew-cakeworkctl
+      branch: main
+      token: "{{ .Env.GH_PAT }}"
+    folder: Formula
+    homepage: https://github.com/usecakework/homebrew-cakeworkctl
+    description: CLI for cakework.
+
+blobs:
+  # You can have multiple blob configs
+  -
+    # provider: s3
+
+    # Set a custom endpoint, useful if you're using a minio backend or
+    # other s3-compatible backends.
+    #
+    # Implies s3ForcePathStyle and requires provider to be `s3`
+    #
+    # Templateable.
+    # endpoint: https://minio.foo.bar
+
+    # Sets the bucket region.
+    # Requires provider to be `s3`
+    # Defaults to empty.
+    #
+    # Templateable.
+    # region: us-west-2
+
+    # Disables SSL
+    # Requires provider to be `s3`
+    # Defaults to false
+    # disableSSL: true
+
+    # Template for the bucket name
+    #
+    # Templateable.
+    # bucket: cakeworkctl-downloads
+
+    # IDs of the artifacts you want to upload.
+    # ids:
+    # - cakeworkctl
+
+    # Template for the path/name inside the bucket.
+    # Default is `{{ .ProjectName }}/{{ .Tag }}`
+    # folder: "foo/bar/{{.Version}}"
+
+    # You can add extra pre-existing files to the bucket.
+    # The filename on the release will be the last part of the path (base).
+    # If another file with the same name exists, the last one found will be used.
+    # These globs can also include templates.
+    #
+    # Defaults to empty.
+  # extra_files:
+  #     - glob: ./install.sh
+      # - glob: ./glob/**/to/**/file/**/*
+      # - glob: ./glob/foo/to/bar/file/foobar/override_from_previous
+      # - glob: ./single_file.txt
+      #   name_template: file.txt # note that this only works if glob matches 1 file only
+  # -
+  #   provider: gs
+  #   bucket: goreleaser-bucket
+  #   folder: "foo/bar/{{.Version}}"
+  # -
+    provider: s3
+    region: us-west-2
+    disableSSL: true
+    bucket: cakeworkctl-downloads
+    folder: "{{.Version}}"
+    extra_files:
+        - glob: ./install.sh
+
+
