@@ -208,20 +208,28 @@ func main() {
 
 	jwtMiddleware := jwtmiddleware.New(jwtValidator.ValidateToken)
 
-	router.Use(adapter.Wrap(jwtMiddleware.CheckJWT))
+	jwtProtectedGroup := router.Group("", adapter.Wrap(jwtMiddleware.CheckJWT))
+	{
+		jwtProtectedGroup.POST("/submit-task", submitTask, scopeMiddleware("submit:task"), jwtTokenMiddleware()) // the scope middleware needs to run before the jwtTokenMiddleware handler
+		jwtProtectedGroup.GET("/get-status", getStatus, scopeMiddleware("get:status"), jwtTokenMiddleware())  
+		jwtProtectedGroup.GET("/get-result", getResult, scopeMiddleware("get:result"), jwtTokenMiddleware())                              // TODO change to GET /request/result/requestId
+		jwtProtectedGroup.PATCH("/update-status", updateStatus, scopeMiddleware("update:status"), jwtTokenMiddleware())                      // TODO change to POST /request/status/requestId
+		jwtProtectedGroup.PATCH("/update-result", updateResult, scopeMiddleware("update:result"), jwtTokenMiddleware())                      // TODO change to POST /request/result/requestId
+		jwtProtectedGroup.POST("/create-client-token", createClientToken, scopeMiddleware("create:client_token"), jwtTokenMiddleware())            // TODO change to POST /client-token // TODO protect this using auth0
+		jwtProtectedGroup.POST("/create-user", createUser, scopeMiddleware("create:user"), jwtTokenMiddleware())                           // TODO change to POST /user
+		jwtProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken, scopeMiddleware("get:user_from_client_token"), jwtTokenMiddleware()) // TODO change to GET /user with parameters/query string
+		jwtProtectedGroup.GET("/get-user", getUser, scopeMiddleware("get:user"), jwtTokenMiddleware())                                  // TODO change to GET /user
+		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, scopeMiddleware("get:task_status"), jwtTokenMiddleware()) // the scope is incorrectly named. TODO fix
+		// TODO have an add-task	
+	}
 
-	router.POST("/submit-task", submitTask)
-	// router.GET("/get-task", getTaskRun) //TODO we should probably have this
-	router.GET("/get-status", getStatus)                              // TODO change to GET /request/status/requestId
-	router.GET("/get-result", getResult)                              // TODO change to GET /request/result/requestId
-	router.PATCH("/update-status", updateStatus)                      // TODO change to POST /request/status/requestId
-	router.PATCH("/update-result", updateResult)                      // TODO change to POST /request/result/requestId
-	router.POST("/create-client-token", createClientToken)            // TODO change to POST /client-token // TODO protect this using auth0
-	router.POST("/create-user", createUser)                           // TODO change to POST /user
-	router.GET("/get-user-from-client-token", getUserFromClientToken) // TODO change to GET /user with parameters/query string
-	router.GET("/get-user", getUser)                                  // TODO change to GET /user
-	router.GET("/task/logs", handleGetTaskLogs)
-	// TODO have an add-task
+	apiKeyProtectedGroup := router.Group("/client", apiKeyMiddleware())
+	{
+		apiKeyProtectedGroup.GET("/get-status", getStatus)  
+		apiKeyProtectedGroup.GET("/get-result", getResult)                              // TODO change to GET /request/result/requestId
+		apiKeyProtectedGroup.POST("/submit-task", submitTask)
+	}
+
 	router.Run()
 }
 
@@ -246,10 +254,6 @@ func authMiddleware() gin.HandlerFunc {
 }
 
 func submitTask(c *gin.Context) {
-	if !isAuthed(c, "submit:task") {
-		return
-	}
-
 	var newTaskRequest TaskRequest
 
 	if err := c.BindJSON(&newTaskRequest); err != nil {
@@ -300,10 +304,6 @@ func submitTask(c *gin.Context) {
 }
 
 func handleGetTaskLogs(c *gin.Context) {
-	if !isAuthed(c, "get:task_status") {
-		return
-	}
-
 	var newGetTaskLogsRequest GetTaskLogsRequest
 
 	if err := c.BindJSON(&newGetTaskLogsRequest); err != nil {
@@ -331,10 +331,6 @@ func handleGetTaskLogs(c *gin.Context) {
 }
 
 func getStatus(c *gin.Context) {
-	if !isAuthed(c, "get:status") {
-		return
-	}
-
 	var newGetStatusRequest GetStatusRequest
 
 	if err := c.BindJSON(&newGetStatusRequest); err != nil {
@@ -366,10 +362,6 @@ func getStatus(c *gin.Context) {
 }
 
 func getResult(c *gin.Context) {
-	if !isAuthed(c, "get:result") {
-		return
-	}
-
 	var newGetResultRequest GetResultRequest
 
 	if err := c.BindJSON(&newGetResultRequest); err != nil {
@@ -401,10 +393,6 @@ func getResult(c *gin.Context) {
 }
 
 func updateStatus(c *gin.Context) {
-	if !isAuthed(c, "update:status") {
-		return
-	}
-
 	var request UpdateStatusRequest
 
 	if err := c.BindJSON(&request); err != nil {
@@ -444,10 +432,6 @@ func updateStatus(c *gin.Context) {
 }
 
 func updateResult(c *gin.Context) {
-	if !isAuthed(c, "update:result") {
-		return
-	}
-
 	var request UpdateResultRequest
 
 	if err := c.BindJSON(&request); err != nil {
@@ -567,10 +551,6 @@ func checkErr(err error) {
 // TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0?
 // if the frontend api is locked down now, how will the client call the frontend?
 func createClientToken(c *gin.Context) {
-	if !isAuthed(c, "create:client_token") {
-		return
-	}
-
 	var newRequest CreateClientTokenRequest
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -626,10 +606,6 @@ func createClientToken(c *gin.Context) {
 }
 
 func createUser(c *gin.Context) {
-	if !isAuthed(c, "create:user") {
-		return
-	}
-
 	var newRequest CreateUserRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
@@ -665,10 +641,6 @@ func createUser(c *gin.Context) {
 }
 
 func getUserFromClientToken(c *gin.Context) {
-	if !isAuthed(c, "get:user_from_client_token") {
-		return
-	}
-
 	// fetch the client token by the token value
 	// return the user
 	var newRequest GetUserByClientTokenRequest
@@ -695,10 +667,6 @@ func getUserFromClientToken(c *gin.Context) {
 }
 
 func getUser(c *gin.Context) {
-	if !isAuthed(c, "get:user") {
-		return
-	}
-
 	var newRequest GetUserRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
@@ -727,39 +695,4 @@ func getUser(c *gin.Context) {
 		fmt.Println(user)
 		c.IndentedJSON(http.StatusOK, user)
 	}
-}
-
-func isAuthed(c *gin.Context, scope string) bool {
-	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to get validated JWT claims."},
-		)
-		return false
-	}
-
-	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-	if !ok {
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-		)
-		return false
-	}
-
-	if len(customClaims.Scope) == 0 {
-		c.AbortWithStatusJSON(
-			http.StatusBadRequest,
-			map[string]string{"message": "Scope in JWT claims was empty."},
-		)
-		return false
-	}
-
-	if !strings.Contains(customClaims.Scope, scope) {
-		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-		return false
-	}
-
-	return true
 }
