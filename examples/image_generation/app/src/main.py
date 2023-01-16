@@ -6,11 +6,11 @@ from PIL import Image
 import boto3
 from nanoid import generate
 
-AWS_ACCESS_KEY_ID = "AKIAYZ53GM6UJWTWCNPS"
-AWS_SECRET_ACCESS_KEY = "S46BaUR1Iu6UWQrRz79VH8p2hqO1e84OM7xEzuWW"
-AWS_BUCKET = "cakework-public-examples"
-BANANA_API_KEY = "db4cff41-3568-4756-9c30-56d26c18647f"
-BANANA_MODEL_KEY = "6daae4bd-0805-4ef8-9d51-be340d3f48bf"
+# AWS_ACCESS_KEY_ID = "YOUR_ACCESS_KEY_ID"
+# AWS_SECRET_ACCESS_KEY = "YOUR_SECRET_KEY"
+# AWS_BUCKET = "YOUR_AWS_BUCKET"
+# BANANA_API_KEY = "YOUR_API_KEY"
+# BANANA_MODEL_KEY = "YOUR_MODEL_KEY"
 
 # Run image generation model, returning the image as bytes.
 # We are running stable diffusion hosted on banana.
