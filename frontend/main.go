@@ -122,6 +122,11 @@ type GetTaskLogsRequest struct {
 	StatusFilter string `json:"status_filter"`
 }
 
+type GetRequestLogsRequest struct {
+	UserId    string `json:"userId"`
+	RequestId string `json:requestId"`
+}
+
 var db *sql.DB
 var err error
 
@@ -208,22 +213,23 @@ func main() {
 	jwtProtectedGroup := router.Group("", adapter.Wrap(jwtMiddleware.CheckJWT))
 	{
 		jwtProtectedGroup.POST("/submit-task", submitTask, jwtTokenMiddleware("submit:task")) // the scope middleware needs to run before the jwtTokenMiddleware handler
-		jwtProtectedGroup.GET("/get-status", getStatus, jwtTokenMiddleware("get:status"))  
-		jwtProtectedGroup.GET("/get-result", getResult, jwtTokenMiddleware("get:result"))                              // TODO change to GET /request/result/requestId
-		jwtProtectedGroup.PATCH("/update-status", updateStatus, jwtTokenMiddleware("update:status"))                      // TODO change to POST /request/status/requestId
-		jwtProtectedGroup.PATCH("/update-result", updateResult, jwtTokenMiddleware("update:result"))                      // TODO change to POST /request/result/requestId
-		jwtProtectedGroup.POST("/create-client-token", createClientToken, jwtTokenMiddleware("create:client_token"))            // TODO change to POST /client-token // TODO protect this using auth0
-		jwtProtectedGroup.POST("/create-user", createUser, jwtTokenMiddleware("create:user"))                           // TODO change to POST /user
+		jwtProtectedGroup.GET("/get-status", getStatus, jwtTokenMiddleware("get:status"))
+		jwtProtectedGroup.GET("/get-result", getResult, jwtTokenMiddleware("get:result"))                                              // TODO change to GET /request/result/requestId
+		jwtProtectedGroup.PATCH("/update-status", updateStatus, jwtTokenMiddleware("update:status"))                                   // TODO change to POST /request/status/requestId
+		jwtProtectedGroup.PATCH("/update-result", updateResult, jwtTokenMiddleware("update:result"))                                   // TODO change to POST /request/result/requestId
+		jwtProtectedGroup.POST("/create-client-token", createClientToken, jwtTokenMiddleware("create:client_token"))                   // TODO change to POST /client-token // TODO protect this using auth0
+		jwtProtectedGroup.POST("/create-user", createUser, jwtTokenMiddleware("create:user"))                                          // TODO change to POST /user
 		jwtProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken, jwtTokenMiddleware("get:user_from_client_token")) // TODO change to GET /user with parameters/query string
-		jwtProtectedGroup.GET("/get-user", getUser, jwtTokenMiddleware("get:user"))                                  // TODO change to GET /user
-		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, jwtTokenMiddleware("get:task_status")) // the scope is incorrectly named. TODO fix
-		// TODO have an add-task	
+		jwtProtectedGroup.GET("/get-user", getUser, jwtTokenMiddleware("get:user"))                                                    // TODO change to GET /user
+		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, jwtTokenMiddleware("get:task_status"))                                  // the scope is incorrectly named. TODO fix
+		jwtProtectedGroup.GET("/request/logs", handleGetRequestLogs)
+		// TODO have an add-task
 	}
 
 	apiKeyProtectedGroup := router.Group("/client", apiKeyMiddleware())
 	{
-		apiKeyProtectedGroup.GET("/get-status", getStatus)  
-		apiKeyProtectedGroup.GET("/get-result", getResult)                              // TODO change to GET /request/result/requestId
+		apiKeyProtectedGroup.GET("/get-status", getStatus)
+		apiKeyProtectedGroup.GET("/get-result", getResult) // TODO change to GET /request/result/requestId
 		apiKeyProtectedGroup.POST("/submit-task", submitTask)
 		apiKeyProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken) // user never actually invokes this, but our client library needs to
 	}
@@ -301,12 +307,52 @@ func submitTask(c *gin.Context) {
 
 }
 
+func handleGetRequestLogs(c *gin.Context) {
+	// get app name and task name from the request id
+	var newGetRequestLogsRequest GetRequestLogsRequest
+
+	if err := c.BindJSON(&newGetRequestLogsRequest); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+		c.IndentedJSON(http.StatusBadRequest, "Issue with parsing request to json")
+		return
+	}
+
+	requestDetails, err := getRequestDetails(db, newGetRequestLogsRequest.RequestId)
+
+	if err != nil {
+		fmt.Println(err)
+		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+		return
+	}
+
+	if requestDetails == nil {
+		c.IndentedJSON(http.StatusNotFound, "Request "+newGetRequestLogsRequest.RequestId+" does not exist.")
+		return
+	}
+
+	userId := requestDetails.UserId
+	appName := requestDetails.App
+	taskName := requestDetails.Task
+
+	logs, err := getRequestLogs(userId, appName, taskName)
+	if err != nil {
+		fmt.Println(err)
+		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, logs)
+	return
+}
+
 func handleGetTaskLogs(c *gin.Context) {
 	var newGetTaskLogsRequest GetTaskLogsRequest
 
 	if err := c.BindJSON(&newGetTaskLogsRequest); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
+		c.IndentedJSON(http.StatusBadRequest, "Issue with parsing request to json")
 		return
 	}
 
@@ -318,11 +364,11 @@ func handleGetTaskLogs(c *gin.Context) {
 	taskLogs, err := getTaskLogs(db, userId, app, task, statusFilter)
 
 	// return task not found properly
-
 	if err != nil {
 		fmt.Println("Error when getting task logs")
 		fmt.Println(err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "sorry :( something broke, come talk to us"})
+		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+		return
 	}
 
 	c.IndentedJSON(http.StatusOK, taskLogs)
@@ -487,7 +533,7 @@ func createTaskRun(taskRun TaskRun) error {
 			fmt.Printf("impossible to insert : %s", err)
 			return err
 		}
-		_, err = insertResult.LastInsertId() 
+		_, err = insertResult.LastInsertId()
 		if err != nil {
 			return err
 			// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
@@ -496,6 +542,7 @@ func createTaskRun(taskRun TaskRun) error {
 	return nil
 }
 
+// TODO deprecate in favor of request.getRequest
 func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
 
 	// TODO use the userId and app
@@ -567,7 +614,7 @@ func createClientToken(c *gin.Context) {
 	updatedAt := time.Now()
 
 	clientToken := ClientToken{
-		Token:  token,
+		Token: token,
 	}
 
 	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`, `updatedAt`) VALUES (?, ?, ?, ?, ?)"

@@ -5,15 +5,6 @@ import (
 	"time"
 )
 
-type Request struct {
-	RequestId  string `json:"request"`
-	Status     string `json:"status"`
-	Parameters string `json:"parameters"`
-	Result     string `json:"result"`
-	CreatedAt  int64  `json:"created_at"`
-	UpdatedAt  int64  `json:"updated_at"`
-}
-
 type TaskLogs struct {
 	Requests []Request `json:"requests"`
 }

@@ -1,5 +1,13 @@
 
 
+# Set up your own stack
+
+
+5. Start the log shipper (Requires Logtail account). From the ```./log-shipper`` dir:
+    1. Modify the ```fly.toml``` file with your Fly.io org name
+    2. [Set the appropriate secrets for Fly and Logtail](https://github.com/superfly/fly-log-shipper)
+    3. Run ```fly deploy```
+
 # Set up local development
 
 1. [Install NATS](https://docs.nats.io/nats-concepts/what-is-nats/walkthrough_setup).

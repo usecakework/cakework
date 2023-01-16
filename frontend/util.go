@@ -15,3 +15,8 @@ func sanitizeAppName(app string) string {
 func sanitizeTaskName(task string) string {
 	return strings.Replace(strings.ToLower(task), "_", "-", -1)
 }
+
+// should be sanitized for fly
+func getFlyAppName(userId string, appName string, taskName string) string {
+	return userId + "-" + appName + "-" + taskName
+}
