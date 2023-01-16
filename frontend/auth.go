@@ -40,18 +40,11 @@ func apiKeyMiddleware() gin.HandlerFunc {
 	}
 }
 
-// this associates the scope that the function expects. used by 
-func scopeMiddleware(scope string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		fmt.Println("setting scope to : " + scope)
-		c.Set("scope", scope)
-		c.Next()
-	}
-}
-
 // this validates the the functions have the correct scopes
-func jwtTokenMiddleware() gin.HandlerFunc {
+func jwtTokenMiddleware(scope string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		fmt.Println("got scope in jwt token middleware: " + scope)
+
 		claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
 		if !ok {
 			c.AbortWithStatusJSON(
@@ -77,16 +70,16 @@ func jwtTokenMiddleware() gin.HandlerFunc {
 			)
 			return
 		}
-
-		scope := c.Request.Header.Get("scope") // middleware should have injected this. if null, it's our server's fault; throw internal server error
 		
 		if scope == "" {
+			log.Error("Middleware to inject scope into gin context failed; not able to finish authorizing JWT token")
 			c.AbortWithStatusJSON(
 				http.StatusInternalServerError,
 				map[string]string{"message": "sorry :( something broke, come talk to us"},
 			)
 			return
 		}
+
 		if !strings.Contains(customClaims.Scope, scope) {
 			// get the scope from the token
 			fmt.Println("customClaims.Scope")

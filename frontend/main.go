@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	adapter "github.com/gwatts/gin-adapter"
 	"github.com/nats-io/nats.go"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -96,10 +96,7 @@ type CreateClientTokenRequest struct {
 }
 
 type ClientToken struct {
-	Id     string `json:"id"`
-	Token  string `json:"token"`
-	UserId string `json:"userId"`
-	Name   string `json:"name"`
+	Token string `json:"token"`
 }
 
 type CreateUserRequest struct {
@@ -210,16 +207,16 @@ func main() {
 
 	jwtProtectedGroup := router.Group("", adapter.Wrap(jwtMiddleware.CheckJWT))
 	{
-		jwtProtectedGroup.POST("/submit-task", submitTask, scopeMiddleware("submit:task"), jwtTokenMiddleware()) // the scope middleware needs to run before the jwtTokenMiddleware handler
-		jwtProtectedGroup.GET("/get-status", getStatus, scopeMiddleware("get:status"), jwtTokenMiddleware())  
-		jwtProtectedGroup.GET("/get-result", getResult, scopeMiddleware("get:result"), jwtTokenMiddleware())                              // TODO change to GET /request/result/requestId
-		jwtProtectedGroup.PATCH("/update-status", updateStatus, scopeMiddleware("update:status"), jwtTokenMiddleware())                      // TODO change to POST /request/status/requestId
-		jwtProtectedGroup.PATCH("/update-result", updateResult, scopeMiddleware("update:result"), jwtTokenMiddleware())                      // TODO change to POST /request/result/requestId
-		jwtProtectedGroup.POST("/create-client-token", createClientToken, scopeMiddleware("create:client_token"), jwtTokenMiddleware())            // TODO change to POST /client-token // TODO protect this using auth0
-		jwtProtectedGroup.POST("/create-user", createUser, scopeMiddleware("create:user"), jwtTokenMiddleware())                           // TODO change to POST /user
-		jwtProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken, scopeMiddleware("get:user_from_client_token"), jwtTokenMiddleware()) // TODO change to GET /user with parameters/query string
-		jwtProtectedGroup.GET("/get-user", getUser, scopeMiddleware("get:user"), jwtTokenMiddleware())                                  // TODO change to GET /user
-		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, scopeMiddleware("get:task_status"), jwtTokenMiddleware()) // the scope is incorrectly named. TODO fix
+		jwtProtectedGroup.POST("/submit-task", submitTask, jwtTokenMiddleware("submit:task")) // the scope middleware needs to run before the jwtTokenMiddleware handler
+		jwtProtectedGroup.GET("/get-status", getStatus, jwtTokenMiddleware("get:status"))  
+		jwtProtectedGroup.GET("/get-result", getResult, jwtTokenMiddleware("get:result"))                              // TODO change to GET /request/result/requestId
+		jwtProtectedGroup.PATCH("/update-status", updateStatus, jwtTokenMiddleware("update:status"))                      // TODO change to POST /request/status/requestId
+		jwtProtectedGroup.PATCH("/update-result", updateResult, jwtTokenMiddleware("update:result"))                      // TODO change to POST /request/result/requestId
+		jwtProtectedGroup.POST("/create-client-token", createClientToken, jwtTokenMiddleware("create:client_token"))            // TODO change to POST /client-token // TODO protect this using auth0
+		jwtProtectedGroup.POST("/create-user", createUser, jwtTokenMiddleware("create:user"))                           // TODO change to POST /user
+		jwtProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken, jwtTokenMiddleware("get:user_from_client_token")) // TODO change to GET /user with parameters/query string
+		jwtProtectedGroup.GET("/get-user", getUser, jwtTokenMiddleware("get:user"))                                  // TODO change to GET /user
+		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, jwtTokenMiddleware("get:task_status")) // the scope is incorrectly named. TODO fix
 		// TODO have an add-task	
 	}
 
@@ -228,6 +225,7 @@ func main() {
 		apiKeyProtectedGroup.GET("/get-status", getStatus)  
 		apiKeyProtectedGroup.GET("/get-result", getResult)                              // TODO change to GET /request/result/requestId
 		apiKeyProtectedGroup.POST("/submit-task", submitTask)
+		apiKeyProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken) // user never actually invokes this, but our client library needs to
 	}
 
 	router.Run()
@@ -237,9 +235,9 @@ func guidMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uuid := uuid.New()
 		c.Set("uuid", uuid)
-		fmt.Printf("The request with uuid %s is started \n", uuid)
+		log.Printf("Request started: %s\n", uuid)
 		c.Next()
-		fmt.Printf("The request with uuid %s is served \n", uuid)
+		log.Printf("Request finished: %s\n", uuid)
 	}
 }
 
@@ -489,13 +487,10 @@ func createTaskRun(taskRun TaskRun) error {
 			fmt.Printf("impossible to insert : %s", err)
 			return err
 		}
-		id, err := insertResult.LastInsertId()
+		_, err = insertResult.LastInsertId() 
 		if err != nil {
 			return err
 			// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
-		} else {
-			log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
-			log.Printf("Successfully inserted")
 		}
 	}
 	return nil
@@ -551,6 +546,8 @@ func checkErr(err error) {
 // TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0?
 // if the frontend api is locked down now, how will the client call the frontend?
 func createClientToken(c *gin.Context) {
+	fmt.Println("context")
+	fmt.Println(c)
 	var newRequest CreateClientTokenRequest
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -570,26 +567,20 @@ func createClientToken(c *gin.Context) {
 	updatedAt := time.Now()
 
 	clientToken := ClientToken{
-		Id:     tokenId,
 		Token:  token,
-		UserId: newRequest.UserId,
-		Name:   newRequest.Name,
 	}
 
 	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`, `updatedAt`) VALUES (?, ?, ?, ?, ?)"
-	insertResult, err := db.ExecContext(context.Background(), query, clientToken.Id, clientToken.Name, clientToken.Token, clientToken.UserId, updatedAt)
+	insertResult, err := db.ExecContext(context.Background(), query, tokenId, newRequest.Name, token, newRequest.UserId, updatedAt)
 	if err != nil {
 		fmt.Printf("impossible to insert : %s", err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
-	id, err := insertResult.LastInsertId()
+	_, err = insertResult.LastInsertId()
 	if err != nil {
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
-		log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
-		log.Printf("Successfully inserted")
-		fmt.Println(clientToken)
 		c.IndentedJSON(http.StatusCreated, clientToken)
 	}
 
@@ -629,12 +620,12 @@ func createUser(c *gin.Context) {
 		fmt.Printf("impossible to insert : %s", err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
-	id, err := insertResult.LastInsertId()
+	_, err = insertResult.LastInsertId()
 	if err != nil {
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
-		log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
+		// log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
 		log.Printf("Successfully inserted")
 		c.IndentedJSON(http.StatusCreated, newUser)
 	}
