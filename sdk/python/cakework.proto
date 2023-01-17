@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package cakework;
+
+service Cakework {
+  rpc RunActivity (Request) returns (Reply) {}
+}
+
+message Request {
+  string parameters = 1;
+  string userId = 2;
+  string app = 3;
+  string requestId = 4;
+}
+
+message Reply {
+  string result = 1;
+}
