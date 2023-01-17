@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"path"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/nats-io/nats.go"
-	"github.com/usecakework/cakework/fly"
+	cmd "github.com/usecakework/cakework/cmd"
 	"google.golang.org/grpc"
 )
 
@@ -50,7 +51,12 @@ var frontendUrl string
 var accessToken, refreshToken string
 
 func main() {
-	fly.DeployMachine("dummyApp", "dummyImage")
+	mycmd := exec.Command("bash", "-c", "pwd")
+	// print(cmd.RunCmd(mycmd, "/Users/jessieyoung/"))
+	print(cmd.RunCmd(mycmd, ""))
+
+	// fly := fly.New("/Users/jessieyoung/.fly/bin/fly")
+	// fly.DeployMachine("dummyApp", "dummyImage")
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	flag.Parse()
 

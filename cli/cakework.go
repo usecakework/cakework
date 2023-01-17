@@ -24,6 +24,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"github.com/usecakework/cakework/fly"
 )
 
 //go:embed Dockerfile
@@ -56,7 +57,7 @@ func main() {
 	// buildDirectory := filepath.Join(workingDirectory, "build") // TODO figure out how to obfuscate all build files
 	buildDirectory := workingDirectory
 	dirname, _ := os.UserHomeDir()
-	fly := dirname + "/.cakework/.fly/bin/fly" // TODO join paths in an OS specific way with proper delimiters
+	fly := fly.New(dirname + "/.cakework/.fly/bin/fly", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo", "sahale") //TODO extract secrets and rotate
 	cakeworkDirectory := dirname + "/.cakework"
 
 	// initialize the config object
@@ -320,9 +321,37 @@ if __name__ == "__main__":
 				Name:  "deploy",
 				Usage: "Deploy your Project",
 				Action: func(cCtx *cli.Context) error {
+// 					out1 := `
+// --> Pushing image done
+// : Sending build context to Docker daemon  1.814kB
+// Image: registry.fly.io/105349741723321386951-fly-machines-say-hello:deployment-01GPYJ7431AKCSMR7GBZST0JQY
+// Image size: 147 MB
+
+// Success! A machine has been successfully launched in app 105349741723321386951-fly-machines-say-hello, waiting for it to be started
+//  Machine ID: e286000ce72e86
+//  Instance ID: 01GPYJ7KNBR6YPXRGYCV5BD40P
+//  State: created
+// ==> Monitoring health checks
+// No health checks found
+
+// Machine started, you can connect via the following private ip
+//   fdaa:0:f205:a7b:b385:5f1c:1594:2								
+// `
+// 					fmt.Println(out1) // TODO delete
+// 					machineId, instanceId, stage, image, err1 := fly.GetMachineInfo(out1)
+// 					fmt.Printf("%s %s %s %s", machineId, instanceId, stage, image)
+// 					if err1 != nil {
+// 						fmt.Println("got an error")
+// 						fmt.Println(err1)
+// 					}
+
+
+
 					// TODO need to check if we are logged in before deploying!!
 					// TODO: how to set the verbosity for every app?
 					// TODO: should we only allow allowd users to call this action? so as long as someone has the user id in the file then it's ok?
+					
+					
 					if !isLoggedIn() {
 						return cli.Exit("Please sign up or log in first", 1)
 					}
@@ -438,77 +467,45 @@ if __name__ == "__main__":
 					check(err)
 
 					// TODO remove access token from source code and re-create github repo
-					cmd := exec.Command(fly, "apps", "create", flyAppName, "--org", "sahale", "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-					cmd.Dir = buildDirectory
-
-					var outCreate bytes.Buffer
-					var stderrCreate bytes.Buffer
-					cmd.Stdout = &outCreate
-					cmd.Stderr = &stderrCreate
-					errCreate := cmd.Run()
-					allOutput := fmt.Sprint(err) + ": " + stderrCreate.String() + ": " + outCreate.String()
-
-					if errCreate != nil {
-						if strings.Contains(allOutput, "Name has already been taken") {
-							log.Debug("fly app already exists. Not an error") // TODO in the future, we don't want to overwrite different people's code. will be fixed once we have auth
-
-							log.Debug("allocating ip addresses") // q: need both ipv4 and ipv6? need ipv4 for sure.
-							// TODO if they've been allocated successfully already, no need to re-do
-							cmd = exec.Command(fly, "ips", "allocate-v4", "--app", flyAppName, "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-							cmd.Dir = buildDirectory
-							shell(cmd)
-							// cmd = exec.Command(fly, "ips", "allocate-v6", "--app", flyAppName, "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-							// cmd.Dir = buildDirectory
-							// shell(cmd)
-
-							cmd = exec.Command(fly, "deploy", "--app", flyAppName, "--region", "sea", "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-							cmd.Dir = buildDirectory
-							_, err := shell(cmd)
-							check(err)
-
-						} else {
-							log.Debug(outCreate) // should we output more stuff here? like
-							check(err)
-						}
-					} else { // deploying for the first time
-
-						log.Debug("allocating ip addresses") // q: need both ipv4 and ipv6? need ipv4 for sure.
-						// TODO if they've been allocated successfully already, no need to re-do
-						cmd = exec.Command(fly, "ips", "allocate-v4", "--app", flyAppName, "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-						cmd.Dir = buildDirectory
-						shell(cmd)
-						// cmd = exec.Command(fly, "ips", "allocate-v6", "--app", flyAppName, "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-						// cmd.Dir = buildDirectory
-						// shell(cmd)
-
-						cmd = exec.Command(fly, "deploy", "--app", flyAppName, "--region", "sea", "--access-token", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo")
-
-						cmd.Dir = buildDirectory
-						_, err := shell(cmd)
-						check(err)
-
+					
+					// TODO move these parameters to env variables
+					if _, err := fly.CreateApp(flyAppName, buildDirectory); err != nil {
+						return cli.Exit("Failed to create Fly app", 1)
 					}
 
-					// creating a brand new app
-					// TODO if there are old machines with old code, destroy them all first
-					// out, err = shell(exec.Command("cd", directory + "/build/" + activityName)) // does this cd command actually do anything? since we set the dir
-					// TODO switch back to using machine
+					// TODO if ips have previously been allocated, skip this step
+					if _, err := fly.AllocateIpv4(flyAppName, buildDirectory); err != nil {
+						return cli.Exit("Failed to allocate ips for Fly app", 1)
+					}
 
-					// TODO: if ips already allocated, no need to allocate more
-					// maybe instead of fly launch, just do a deploy as well
+					// if machines exist, get list of machines and update all of them
+
+					// otherwise, create new machine
+
+					out, err := fly.DeployMachine(flyAppName, buildDirectory)
+					if err != nil {
+						return cli.Exit("Failed to deploy app fo Fly machine", 1)
+					}
+
+					machineId, instanceId, stage, image, err := fly.GetMachineInfo(out)
+					fmt.Printf("machineId: %s instanceId: %s stage: %s image: %s", machineId, instanceId, stage, image)
+					if err != nil {
+						fmt.Println("got an error")
+						fmt.Println(err)
+					}
+
+					
+
 					s.Stop()
 
-					// delete fly.toml file
-					// TODO make sure this block always runs even if everything else fails (put in finally block)
-					e := os.Remove(filepath.Join(buildDirectory, "fly.toml"))
-					check(e)
+					// TODO run this (even if file doesn't exist) after every
+					err = os.Remove(filepath.Join(buildDirectory, "fly.toml"))
+					if err != nil {
+						fmt.Println("Failed to clean up build artifacts")
+						fmt.Println(err)
+					}
 
 					fmt.Println("Successfully deployed your tasks! 🍰")
-
-					//TODO if there is an error, then return nil
-
-					// log.Debug("Success! Your app is now live 🍰")
-
 					return nil
 				},
 			}, {
