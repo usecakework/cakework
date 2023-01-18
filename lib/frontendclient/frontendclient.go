@@ -113,31 +113,27 @@ func (client *Client) CreateClientToken(userId string, name string) (*types.Clie
 	}
 }
 
-// // TODO return errors
-// func getRequestStatus(userId string, requestId string) string {
-// 	url := frontendURL + "/get-status"
-// 	getStatusRequest := GetStatusRequest{
-// 		UserId:    userId,
-// 		RequestId: requestId,
-// 	}
-// 	jsonReq, err := json.Marshal(getStatusRequest)
-// 	checkOsExit(err)
+func (client *Client) GetRequestStatus(userId string, requestId string) (string, error) {
+	url := client.Url + "/get-status"
+	getStatusRequest := types.GetStatusRequest{
+		UserId:    userId,
+		RequestId: requestId,
+	}
 
-// 	req, err := newRequestWithAuth("GET", url, bytes.NewBuffer(jsonReq))
-// 	checkOsExit(err)
+	body, res, err := http.Call(url, "GET", getStatusRequest, client.CredentialsProvider)
+	if err != nil {
+		return "", err
+	}
 
-// 	_, body, res := callHttp(req)
-// 	if res.StatusCode == 200 {
-// 		status := body["status"].(string)
-// 		return status
-// 	} else if res.StatusCode == 404 {
-// 		fmt.Println("Request ID " + requestId + " does not exist")
-// 		return ""
-// 	} else {
-// 		checkOsExit(errors.New("Error getting request status, got an" + res.Status))
-// 		return ""
-// 	}
-// }
+	if res.StatusCode == 200 {
+		status := body["status"].(string)
+		return status, nil
+	} else if res.StatusCode == 404 {
+		return "", nil
+	} else {
+		return "", errors.New("Error getting request status from server. " + res.Status)
+	}
+}
 
 func (client *Client) GetTaskLogs(userId string, appName string, taskName string, statusFilter string) (types.TaskLogs, error) {
 	url := client.Url + "/task/logs"
@@ -175,14 +171,3 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 		}, err
 	}
 }
-
-// call a frontend API, using the input request
-// func (client *Client) Call(frontendReq interface{}, route string, method string) (map[string]interface{}, *http.Response) {
-// 	jsonReq, err := json.Marshal(frontendReq)
-// 	util.CheckOsExit(err)
-
-// 	req, err := cli.NewRequestWithAuth("POST", url, bytes.NewBuffer(jsonReq))
-// 	util.CheckOsExit(err)
-
-// 	util.callHttp
-// }
