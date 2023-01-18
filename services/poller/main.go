@@ -13,6 +13,8 @@ import (
 	"path"
 	"time"
 
+	"github.com/usecakework/cakework/lib/auth"
+	flyApi "github.com/usecakework/cakework/lib/fly/api"
 	pb "github.com/usecakework/cakework/poller/proto/cakework"
 
 	"github.com/gin-gonic/gin"
@@ -47,6 +49,8 @@ var local bool
 var frontendUrl string
 
 var accessToken, refreshToken string
+var fly flyApi.Fly
+var credentialsProvider auth.BearerStringCredentialsProvider
 
 func main() {
 	// mycmd := exec.Command("bash", "-c", "pwd")
@@ -83,6 +87,9 @@ func main() {
    router := gin.Default()
 
    accessToken, refreshToken = getToken()
+   credentialsProvider = auth.BearerStringCredentialsProvider{ Token: "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo" } // TODO remove this and rotate
+
+   fly = flyApi.New("sahale", credentialsProvider) // TODO remove this secret for public launch
    router.Run(":8081")
 }
 
@@ -123,7 +130,10 @@ func checkErr(err error) {
 // reviewOrder reviews the order and publishes ORDERS.approved event
 func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 	// spin up a new fly machine
-	
+	// TODO remove hardcoding
+	fly.NewMachine(taskRun.)
+
+
 	var conn *grpc.ClientConn
 
 	var endpoint string

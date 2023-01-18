@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/usecakework/cakework/lib/fly"
 	"github.com/usecakework/cakework/lib/types"
 )
 
@@ -12,7 +13,7 @@ import (
 func getRequestLogs(userId string, appName string, taskName string) (*types.RequestLogs, error) {
 
 	// construct search params
-	flyAppName := getFlyAppName(userId, appName, taskName)
+	flyAppName := fly.GetFlyAppName(userId, appName, taskName)
 
 	logs, err := getLogs(flyAppName)
 
