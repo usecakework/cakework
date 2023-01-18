@@ -276,6 +276,9 @@ func handleGetRequestLogs(c *gin.Context) {
 		return
 	}
 
+	fmt.Println("hi")
+	fmt.Println(logs)
+
 	c.IndentedJSON(http.StatusOK, logs)
 	return
 }

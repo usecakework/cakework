@@ -1,10 +1,11 @@
 package frontendclient
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/usecakework/cakework/lib/auth"
 	fly "github.com/usecakework/cakework/lib/fly/cli"
 	"github.com/usecakework/cakework/lib/http"
@@ -124,6 +125,7 @@ func (client *Client) GetRequestStatus(userId string, requestId string) (string,
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode == 200 {
 		status := body["status"].(string)
@@ -132,6 +134,42 @@ func (client *Client) GetRequestStatus(userId string, requestId string) (string,
 		return "", nil
 	} else {
 		return "", errors.New("Error getting request status from server. " + res.Status)
+	}
+}
+
+func (client *Client) GetRequestLogs(userId string, requestId string) (types.RequestLogs, error) {
+	url := client.Url + "/request/logs"
+	getRequestLogsRequest := types.GetRequestLogsRequest{
+		UserId:    userId,
+		RequestId: requestId,
+	}
+
+	res, err := http.CallV2(url, "GET", getRequestLogsRequest, client.CredentialsProvider)
+	if err != nil {
+		return types.RequestLogs{
+			LogLines: []types.RequestLogLine{},
+		}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == 200 {
+		var requestLogs types.RequestLogs
+
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return types.RequestLogs{
+				LogLines: []types.RequestLogLine{},
+			}, nil
+		}
+
+		json.Unmarshal(body, &requestLogs)
+		return requestLogs, nil
+	} else {
+		// get res to string properly
+		fmt.Println(res)
+		return types.RequestLogs{
+			LogLines: []types.RequestLogLine{},
+		}, errors.New("Error getting request status from server. " + res.Status)
 	}
 }
 
@@ -144,23 +182,24 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 		StatusFilter: statusFilter,
 	}
 
-	body, res, err := http.Call(url, "GET", getTaskLogsRequest, client.CredentialsProvider)
+	res, err := http.CallV2(url, "GET", getTaskLogsRequest, client.CredentialsProvider)
 	if err != nil {
 		return types.TaskLogs{
 			Requests: []types.Request{},
 		}, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode == 200 {
 		var taskLogs types.TaskLogs
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return types.TaskLogs{
 				Requests: []types.Request{},
 			}, err
 		}
 
-		// TODO DON'T DOUBLE DESERIALIZE
-		mapstructure.Decode(body, &taskLogs)
+		json.Unmarshal(body, &taskLogs)
 		return taskLogs, nil
 	} else {
 		// get res to string properly
