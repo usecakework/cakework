@@ -599,6 +599,89 @@ if __name__ == "__main__":
 					},
 				},
 			},
+			{
+				Name:  "request",
+				Usage: "Interact with your Requests (e.g. get logs)",
+				Subcommands: []*cli.Command{
+					{
+						Name:      "status",
+						Usage:     "Get processing status for a Request",
+						UsageText: "cakework request status [REQUEST_ID]",
+						Action: func(cCtx *cli.Context) error {
+							if !isLoggedIn(*config) {
+								fmt.Println("Please signup (cakework signup) or log in (cakework login).")
+								return nil
+							}
+
+							if cCtx.NArg() != 1 {
+								return cli.Exit("Please include one parameter, the Request ID", 1)
+							}
+							requestId := cCtx.Args().Get(0)
+
+							userId, err := getUserId(configFile)
+							if err != nil {
+								return fmt.Errorf("Error getting user from config. %w", err)
+							}
+
+							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+							requestStatus, err := frontendClient.GetRequestStatus(userId, requestId)
+							if err != nil {
+								return fmt.Errorf("Error getting request status from server. %w", err)
+							}
+
+							if requestStatus == "" {
+								fmt.Println("Request not found. Please check your Request Id.")
+								return nil
+							}
+
+							fmt.Println(requestStatus)
+							return nil
+						},
+					},
+					// {
+					// 	Name:      "logs",
+					// 	Usage:     "Get logs for a Request",
+					// 	UsageText: "cakework request logs [REQUEST_ID]",
+					// 	Action: func(cCtx *cli.Context) error {
+					// 		if !isLoggedIn() {
+					// 			fmt.Println("Please signup (cakework signup) or log in (cakework login).")
+					// 			return nil
+					// 		}
+
+					// 		if cCtx.NArg() != 1 {
+					// 			return cli.Exit("Please include one parameter, the Request ID", 1)
+					// 		}
+
+					// 		userId := getUserId()
+					// 		requestId := cCtx.Args().Get(0)
+
+					// 		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+					// 		s.Start()
+					// 		requestLogs := getRequestLogs(userId, requestId)
+
+					// 		if len(requestLogs.LogLines) == 0 {
+					// 			fmt.Println("Request not found. Please check your Request Id.")
+					// 			return nil
+					// 		}
+
+					// 		t := table.NewWriter()
+					// 		t.SetOutputMirror(os.Stdout)
+					// 		for _, line := range requestLogs.LogLines {
+					// 			t.AppendRow([]interface{}{
+					// 				line.Timestamp,
+					// 				line.LogLevel,
+					// 				line.Message,
+					// 			})
+					// 		}
+					// 		t.Render()
+
+					// 		s.Stop()
+
+					// 		return nil
+					// 	},
+					// },
+				},
+			},
 		},
 	}
 
