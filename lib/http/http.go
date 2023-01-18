@@ -22,6 +22,7 @@ func Call(url string, method string, reqStruct interface{}, provider auth.Creden
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonReq))
 	reqDump, _ := httputil.DumpRequestOut(req, true)
+
 	log.Debug(string(reqDump))
 
 	if err != nil {
@@ -41,6 +42,8 @@ func Call(url string, method string, reqStruct interface{}, provider auth.Creden
 	} else if creds.Type == "API_KEY" {
 		req.Header.Add("X-Api-Key", creds.ApiKey)
 		req.Header.Add("Content-Type", "application/json")
+	} else {
+		log.Debug("Credentials type is neither bearer nor api key. Not adding auth headers")
 	}
 
 	return CallHttp(req)
@@ -104,4 +107,9 @@ func CallHttp(req *http.Request) (bodyMap map[string]interface{}, res *http.Resp
 func PrettyPrint(i interface{}) string {
 	s, _ := json.MarshalIndent(i, "", "\t")
 	return string(s)
+}
+
+func PrettyPrintRequest(req *http.Request) string {
+	reqDump, _ := httputil.DumpRequestOut(req, true)
+	return string(reqDump)
 }

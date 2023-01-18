@@ -7,13 +7,14 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/usecakework/cakework/lib/auth"
+	flyUtil "github.com/usecakework/cakework/lib/fly"
 	flyApi "github.com/usecakework/cakework/lib/fly/api"
 	pb "github.com/usecakework/cakework/poller/proto/cakework"
 
@@ -46,11 +47,15 @@ type UpdateStatusRequest struct {
 }
 
 var local bool
+var verbose bool
 var frontendUrl string
+var flyMachineUrl string
 
 var accessToken, refreshToken string
-var fly flyApi.Fly
+var fly *flyApi.Fly
 var credentialsProvider auth.BearerStringCredentialsProvider
+
+const NATS_URL = "cakework-nats-cluster.internal"
 
 func main() {
 	// mycmd := exec.Command("bash", "-c", "pwd")
@@ -60,20 +65,39 @@ func main() {
 	// fly.DeployMachine("dummyApp", "dummyImage")
 	// TODO deploy
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+	
 	flag.Parse()
 
 	local = *localPtr
+	verbose = *verbosePtr
 
 	var nc *nats.Conn
 
+	var natsUrl string
+
 	if local == true {
+		natsUrl = nats.DefaultURL
 		nc, _ = nats.Connect(nats.DefaultURL)
-		fmt.Println("Local mode; connected to nats cluster: " + nats.DefaultURL)
+		fmt.Println("Local mode")
 		frontendUrl = "http://localhost:8080"
+		flyMachineUrl = "http://127.0.0.1:4280"
 	} else {
+		natsUrl = NATS_URL
 		nc, _ = nats.Connect("cakework-nats-cluster.internal")
-		fmt.Println("Non-local mode; connected to nats cluster: cakework-nats-cluster.internal")
+		fmt.Println("Non-local mode")
 		frontendUrl = "cakework-frontend.fly.dev"
+		flyMachineUrl = "http://_api.internal:4280"
+	}
+
+	fmt.Println("NATS url: " + natsUrl)
+	fmt.Println("Frontend url: " + frontendUrl)
+	fmt.Println("Fly Machine url: " + flyMachineUrl)
+
+	if verbose {
+		log.SetLevel(log.DebugLevel)
+	} else{
+		log.SetLevel(log.InfoLevel)
 	}
 
 	// Creates JetStreamContext
@@ -89,7 +113,7 @@ func main() {
    accessToken, refreshToken = getToken()
    credentialsProvider = auth.BearerStringCredentialsProvider{ Token: "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo" } // TODO remove this and rotate
 
-   fly = flyApi.New("sahale", credentialsProvider) // TODO remove this secret for public launch
+   fly = flyApi.New("sahale", "http://127.0.0.1:4280", credentialsProvider) // TODO remove this secret for public launch
    router.Run(":8081")
 }
 
@@ -131,8 +155,17 @@ func checkErr(err error) {
 func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 	// spin up a new fly machine
 	// TODO remove hardcoding
-	fly.NewMachine(taskRun.)
-
+	image := "registry.fly.io/fly-machines:deployment-01GPYM48RWAP9GHWKWP0FNRE4D"
+	cpus := 1
+	memoryMB := 256
+	// TODO get the latest created image from the FlyMachine table 
+	flyApp := flyUtil.GetFlyAppName(taskRun.UserId, taskRun.App, taskRun.Task)
+	
+	err := fly.NewMachine(flyApp, taskRun.RequestId, image, cpus, memoryMB)
+	if err != nil {
+		log.Error(err)
+		log.Error("Failed to deploy new Fly machine")
+	}
 
 	var conn *grpc.ClientConn
 
@@ -146,7 +179,7 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
     // conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
 	// endpoint := taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
 
-    conn, err := grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool? 
+    conn, err = grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool? 
 
 	if err != nil {
 		fmt.Printf("did not connect: %s", err)

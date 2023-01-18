@@ -8,15 +8,14 @@
 
 # syntax=docker/dockerfile:1
 FROM golang:1.19-alpine
+ENV GO111MODULE=on
 WORKDIR /app
 
-# COPY go.mod ./
-# COPY go.sum ./
 # RUN go mod download
 
 COPY . . 
-RUN go build -o /frontend
-RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o poller .
+RUN go build -o poller
+# RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o poller .
 
 FROM alpine:latest  
 WORKDIR /root/
