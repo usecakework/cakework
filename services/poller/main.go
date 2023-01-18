@@ -54,6 +54,7 @@ func main() {
 
 	// fly := fly.New("/Users/jessieyoung/.fly/bin/fly")
 	// fly.DeployMachine("dummyApp", "dummyImage")
+	// TODO deploy
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	flag.Parse()
 
@@ -121,6 +122,8 @@ func checkErr(err error) {
 
 // reviewOrder reviews the order and publishes ORDERS.approved event
 func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
+	// spin up a new fly machine
+	
 	var conn *grpc.ClientConn
 
 	var endpoint string
