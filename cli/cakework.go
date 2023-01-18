@@ -45,8 +45,8 @@ var gitIgnore embed.FS // for python only! TODO fix
 var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
-// var FRONTEND_URL = "https://cakework-frontend.fly.dev"
-var FRONTEND_URL = "http://localhost:8080" // local testing
+var FRONTEND_URL = "https://cakework-frontend.fly.dev"
+// var FRONTEND_URL = "http://localhost:8080" // local testing
 
 func main() {
 	var appName string
@@ -923,15 +923,3 @@ func (c *CustomClaimsExample) Validate(ctx context.Context) error {
 func (c *CustomClaimsExample) Valid() error {
 	return nil
 }
-
-// func refreshAndSaveTokens() {
-// 	// fetch new tokens
-// 	newToken, newRefreshToken := refreshTokens(config.AccessToken, config.RefreshToken)
-// 	if newToken == "" || newRefreshToken == "" {
-// 		fmt.Println("Failed to refresh token")
-// 		os.Exit(1)
-// 	} else {
-// 		addConfigValue("AccessToken", newToken)
-// 		addConfigValue("RefreshToken", newRefreshToken)
-// 	}
-// }
