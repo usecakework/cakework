@@ -14,11 +14,15 @@ WORKDIR /app
 # RUN go mod download
 
 COPY . . 
+# RUN go mod download
 RUN go build -o poller
 # RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o poller .
 
-FROM alpine:latest  
+FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /app/poller ./
 EXPOSE 8080
 CMD ["./poller"]
+
+
+# TODO need to fix Docker build so that it works with go local replace directives: https://github.com/golang/go/issues/26640
