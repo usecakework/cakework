@@ -148,7 +148,7 @@ func main() {
 					}
 
 					if user != nil {
-						fmt.Println("You already have an account. Please log in instead.")
+						fmt.Println("You're logged in with your existing account.")
 						return nil
 					}
 
@@ -174,37 +174,45 @@ func main() {
 					return nil
 				},
 			},
-			// 			{
-			// 				Name:      "create-client-token", // TODO change this to signup. // TODO also create a logout
-			// 				Usage:     "Create an access token for your clients",
-			// 				UsageText: "cakework create-client-token [TOKEN_NAME] [command options] [arguments...]",
-			// 				Action: func(cCtx *cli.Context) error {
-			// 					var name string
-			// 					if cCtx.NArg() > 0 {
-			// 						name = cCtx.Args().Get(0)
-			// 						// write out app name to config file
-			// 						// TODO in the future we won't
-			// 						// TODO write this out in json form
+			{
+				Name:      "create-client-token", // TODO change this to signup. // TODO also create a logout
+				Usage:     "Create an access token for your clients",
+				UsageText: "cakework create-client-token [TOKEN_NAME] [command options] [arguments...]",
+				Action: func(cCtx *cli.Context) error {
+					if !isLoggedIn(*config) {
+						fmt.Println("Please log in with cakework login.")
+						return nil
+					}
 
-			// 					} else {
-			// 						return cli.Exit("Please specify a name for the client token", 1)
-			// 					}
+					var name string
+					if cCtx.NArg() > 0 {
+						name = cCtx.Args().Get(0)
+						// write out app name to config file
+						// TODO in the future we won't
+						// TODO write this out in json form
 
-			// 					if isLoggedIn() {
-			// 						userId := getUserId()
-			// 						log.Debug("got user id")
-			// 						clientToken := createClientToken(userId, name)
+					} else {
+						return errors.New("Please specify a name for the client token.")
+					}
 
-			// 						fmt.Println("Created client token:")
-			// 						fmt.Println(clientToken.Token)
-			// 						fmt.Println("Store this token securely. You will not be able to see this again after initial creation.")
+					userId, err := getUserId(configFile)
+					if err != nil {
+						return fmt.Errorf("Error getting user details to create a client token with: %w", err)
+					}
+					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+					clientToken, err := frontendClient.CreateClientToken(userId, name)
+					if err != nil {
+						return fmt.Errorf("Error creating a client token: %w", err)
+					}
 
-			// 					} else {
-			// 						fmt.Println("Please sign up or log in first")
-			// 					}
-			// 					return nil
-			// 				},
-			// 			},
+					fmt.Println("Created client token:")
+					fmt.Println(clientToken.Token)
+					fmt.Println()
+					fmt.Println("Store this token securely. You will not be able to see this again.")
+
+					return nil
+				},
+			},
 			// 			{
 			// 				Name:      "new",
 			// 				Usage:     "Create a new project",
@@ -329,10 +337,6 @@ func main() {
 				Name:  "deploy",
 				Usage: "Deploy your Project",
 				Action: func(cCtx *urfaveCli.Context) error {
-					// TODO need to check if we are logged in before deploying!!
-					// TODO: how to set the verbosity for every app?
-					// TODO: should we only allow allowd users to call this action? so as long as someone has the user id in the file then it's ok?
-
 					if !isLoggedIn(*config) {
 						fmt.Println("Please log in with cakework login")
 						return nil

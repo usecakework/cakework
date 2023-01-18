@@ -2,7 +2,6 @@ package frontendclient
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/usecakework/cakework/lib/auth"
 	fly "github.com/usecakework/cakework/lib/fly/cli"
@@ -69,9 +68,7 @@ func (client *Client) GetUser(userId string) (*types.User, error) {
 		userId := body["id"].(string)
 		return &types.User{Id: userId}, nil
 	} else {
-		fmt.Println("Error getting user details")
-		fmt.Println(res)
-		return nil, err
+		return nil, errors.New("Error getting user details." + res.Status)
 	}
 }
 
@@ -90,34 +87,29 @@ func (client *Client) CreateUser(userId string) (*types.User, error) { // TODO c
 		userId := body["id"].(string)
 		return &types.User{Id: userId}, nil
 	} else {
-		fmt.Println("Error creating a new user")
-		fmt.Println(res)
-		return nil, err
+		return nil, errors.New("Error creating a new user." + res.Status)
 	}
 }
 
-// func createClientToken(userId string, name string) *ClientToken { // TODO change return type
-// 	url := frontendURL + "/create-client-token"
-// 	createTokenReq := CreateTokenRequest{
-// 		UserId: userId,
-// 		Name:   name,
-// 	}
-// 	jsonReq, err := json.Marshal(createTokenReq)
-// 	util.CheckOsExit(err)
+func (client *Client) CreateClientToken(userId string, name string) (*types.ClientToken, error) { // TODO change return type
+	url := client.Url + "/create-client-token"
+	createTokenReq := types.CreateTokenRequest{
+		UserId: userId,
+		Name:   name,
+	}
 
-// 	req, err := newRequestWithAuth("POST", url, bytes.NewBuffer(jsonReq))
-// 	checkOsExit(err)
+	body, res, err := http.Call(url, "POST", createTokenReq, client.CredentialsProvider)
+	if err != nil {
+		return nil, err
+	}
 
-// 	_, body, res := callHttp(req)
-// 	if res.StatusCode == 201 {
-// 		token := body["token"].(string)
-// 		return &ClientToken{Token: token}
-// 	} else {
-// 		fmt.Println("Error creating client token")
-// 		fmt.Println(res)
-// 		return nil
-// 	}
-// }
+	if res.StatusCode == 201 {
+		token := body["token"].(string)
+		return &types.ClientToken{Token: token}, nil
+	} else {
+		return nil, errors.New("Error creating client token" + res.Status)
+	}
+}
 
 // // TODO return errors
 // func getRequestStatus(userId string, requestId string) string {
