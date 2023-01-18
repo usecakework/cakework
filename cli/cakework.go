@@ -6,6 +6,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -46,6 +47,7 @@ var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
 var FRONTEND_URL = "https://cakework-frontend.fly.dev"
+
 // var FRONTEND_URL = "http://localhost:8080" // local testing
 
 func main() {
@@ -57,7 +59,7 @@ func main() {
 	// buildDirectory := filepath.Join(workingDirectory, "build") // TODO figure out how to obfuscate all build files
 	buildDirectory := workingDirectory
 	dirname, _ := os.UserHomeDir()
-	fly := fly.New(dirname + "/.cakework/.fly/bin/fly", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo", "sahale") //TODO extract secrets and rotate
+	fly := fly.New(dirname+"/.cakework/.fly/bin/fly", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo", "sahale") //TODO extract secrets and rotate
 	cakeworkDirectory := dirname + "/.cakework"
 
 	log.Debug("appName: " + appName)
@@ -69,14 +71,16 @@ func main() {
 
 	config, err := cwConfig.LoadConfig(configFile)
 	if err != nil {
-		cli.Exit("Failed to load or create config file", 1)
+		fmt.Println("Could not load config file.")
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	config.FilePath = configFile
 	cwConfig.UpdateConfig(*config, configFile)
 
-	credsProvider = auth.BearerCredentialsProvider{ ConfigFile: configFile }
-	
+	credsProvider = auth.BearerCredentialsProvider{ConfigFile: configFile}
+
 	app := &urfaveCli.App{
 		Name:     "cakework",
 		Usage:    "This is the Cakework command line interface",
@@ -111,205 +115,215 @@ func main() {
 
 					// when we auth (sign up or log in) for the first time, obtain a set of tokens
 					err = signUpOrLogin()
-					check(err)
+					if err != nil {
+						return fmt.Errorf("Error signing up / logging in: %w", err)
+					}
+
 					fmt.Println("You are logged in 🍰")
 					return nil
 				},
 			},
-// 			{
-// 				Name:  "signup", // TODO change this to signup. // TODO also create a logout
-// 				Usage: "Sign up for Cakework",
-// 				Action: func(cCtx *cli.Context) error {
-// 					if isLoggedIn() {
-// 						fmt.Println("You are already logged in 🍰")
-// 						return nil
-// 					}
-// 					err := auth()
-// 					check(err)
+			{
+				Name:  "signup", // TODO change this to signup. // TODO also create a logout
+				Usage: "Sign up for Cakework",
+				Action: func(cCtx *cli.Context) error {
+					if isLoggedIn(*config) {
+						fmt.Println("You are already logged in 🍰")
+						return nil
+					}
+					err := signUpOrLogin()
+					if err != nil {
+						return fmt.Errorf("Error signing up : %w", err)
+					}
 
-// 					// create new user by calling Cakework frontend
-// 					userId := getUserId()
+					userId, err := getUserId(configFile)
+					if err != nil {
+						return fmt.Errorf("Error signing up: %w", err)
+					}
 
-// 					user := getUser(userId, config.AccessToken, config.RefreshToken)
+					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+					user, err := frontendClient.GetUser(userId)
+					if err != nil {
+						return fmt.Errorf("Error signing up : %w", err)
+					}
 
-// 					if user != nil {
-// 						fmt.Println("You already have an account. Please log in instead.")
-// 						return nil
-// 					}
+					if user != nil {
+						fmt.Println("You already have an account. Please log in instead.")
+						return nil
+					}
 
-// 					user = createUser(userId)
-// 					if user == nil {
-// 						cli.Exit("Sign up failed", 1)
-// 					}
+					user, err = frontendClient.CreateUser(userId)
+					if err != nil {
+						return fmt.Errorf("Error signing up : %w", err)
+					}
 
-// 					fmt.Println("Thanks for signing up with Cakework 🍰")
+					fmt.Println("You're signed up! 🍰")
+					return nil
+				},
+			},
+			// 			{
+			// 				Name:  "logout",
+			// 				Usage: "Log out of the Cakework CLI",
+			// 				Action: func(cCtx *cli.Context) error {
+			// 					err := os.Remove(configFile)
+			// 					if err != nil {
+			// 						cli.Exit("Failed to log out and delete Cakework config file", 1)
+			// 					}
+			// 					fmt.Println("You have been logged out")
+			// 					return nil
+			// 				},
+			// 			},
+			// 			{
+			// 				Name:      "create-client-token", // TODO change this to signup. // TODO also create a logout
+			// 				Usage:     "Create an access token for your clients",
+			// 				UsageText: "cakework create-client-token [TOKEN_NAME] [command options] [arguments...]",
+			// 				Action: func(cCtx *cli.Context) error {
+			// 					var name string
+			// 					if cCtx.NArg() > 0 {
+			// 						name = cCtx.Args().Get(0)
+			// 						// write out app name to config file
+			// 						// TODO in the future we won't
+			// 						// TODO write this out in json form
 
-// 					return nil
-// 				},
-// 			},
-// 			{
-// 				Name:  "logout",
-// 				Usage: "Log out of the Cakework CLI",
-// 				Action: func(cCtx *cli.Context) error {
-// 					err := os.Remove(configFile)
-// 					if err != nil {
-// 						cli.Exit("Failed to log out and delete Cakework config file", 1)
-// 					}
-// 					fmt.Println("You have been logged out")
-// 					return nil
-// 				},
-// 			},
-// 			{
-// 				Name:      "create-client-token", // TODO change this to signup. // TODO also create a logout
-// 				Usage:     "Create an access token for your clients",
-// 				UsageText: "cakework create-client-token [TOKEN_NAME] [command options] [arguments...]",
-// 				Action: func(cCtx *cli.Context) error {
-// 					var name string
-// 					if cCtx.NArg() > 0 {
-// 						name = cCtx.Args().Get(0)
-// 						// write out app name to config file
-// 						// TODO in the future we won't
-// 						// TODO write this out in json form
+			// 					} else {
+			// 						return cli.Exit("Please specify a name for the client token", 1)
+			// 					}
 
-// 					} else {
-// 						return cli.Exit("Please specify a name for the client token", 1)
-// 					}
+			// 					if isLoggedIn() {
+			// 						userId := getUserId()
+			// 						log.Debug("got user id")
+			// 						clientToken := createClientToken(userId, name)
 
-// 					if isLoggedIn() {
-// 						userId := getUserId()
-// 						log.Debug("got user id")
-// 						clientToken := createClientToken(userId, name)
+			// 						fmt.Println("Created client token:")
+			// 						fmt.Println(clientToken.Token)
+			// 						fmt.Println("Store this token securely. You will not be able to see this again after initial creation.")
 
-// 						fmt.Println("Created client token:")
-// 						fmt.Println(clientToken.Token)
-// 						fmt.Println("Store this token securely. You will not be able to see this again after initial creation.")
+			// 					} else {
+			// 						fmt.Println("Please sign up or log in first")
+			// 					}
+			// 					return nil
+			// 				},
+			// 			},
+			// 			{
+			// 				Name:      "new",
+			// 				Usage:     "Create a new project",
+			// 				UsageText: "cakework new [PROJECT_NAME] [command options] [arguments...]",
+			// 				Flags: []cli.Flag{
+			// 					&cli.StringFlag{
+			// 						Name:        "lang",
+			// 						Value:       "python",
+			// 						Usage:       "language for the project. Defaults to python 3.8",
+			// 						Destination: &language,
+			// 					},
+			// 				},
+			// 				Action: func(cCtx *cli.Context) error {
+			// 					if !isLoggedIn() {
+			// 						fmt.Println("Please sign up or log in first")
+			// 						return nil
+			// 					}
 
-// 					} else {
-// 						fmt.Println("Please sign up or log in first")
-// 					}
-// 					return nil
-// 				},
-// 			},
-// 			{
-// 				Name:      "new",
-// 				Usage:     "Create a new project",
-// 				UsageText: "cakework new [PROJECT_NAME] [command options] [arguments...]",
-// 				Flags: []cli.Flag{
-// 					&cli.StringFlag{
-// 						Name:        "lang",
-// 						Value:       "python",
-// 						Usage:       "language for the project. Defaults to python 3.8",
-// 						Destination: &language,
-// 					},
-// 				},
-// 				Action: func(cCtx *cli.Context) error {
-// 					if !isLoggedIn() {
-// 						fmt.Println("Please sign up or log in first")
-// 						return nil
-// 					}
+			// 					if cCtx.NArg() > 0 {
+			// 						appName = cCtx.Args().Get(0)
+			// 						// write out app name to config file
+			// 						// TODO in the future we won't
+			// 						// TODO write this out in json form
+			// 						addConfigValue("App", appName)
 
-// 					if cCtx.NArg() > 0 {
-// 						appName = cCtx.Args().Get(0)
-// 						// write out app name to config file
-// 						// TODO in the future we won't
-// 						// TODO write this out in json form
-// 						addConfigValue("App", appName)
+			// 					} else {
+			// 						return cli.Exit("Please include a Project name", 1)
+			// 					}
+			// 					lang := cCtx.String("lang")
+			// 					if lang == "python" {
+			// 						// Q: why isn't this getting printed out?
+			// 					} else {
+			// 						return cli.Exit("Language "+lang+" not supported", 1)
+			// 					}
+			// 					fmt.Println("Creating your new Cakework project " + appName + "...")
 
-// 					} else {
-// 						return cli.Exit("Please include a Project name", 1)
-// 					}
-// 					lang := cCtx.String("lang")
-// 					if lang == "python" {
-// 						// Q: why isn't this getting printed out?
-// 					} else {
-// 						return cli.Exit("Language "+lang+" not supported", 1)
-// 					}
-// 					fmt.Println("Creating your new Cakework project " + appName + "...")
+			// 					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
+			// 					s.Start()                                                   // Start the spinner
 
-// 					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
-// 					s.Start()                                                   // Start the spinner
+			// 					err := os.Mkdir(appName, os.ModePerm)
+			// 					check(err)
 
-// 					err := os.Mkdir(appName, os.ModePerm)
-// 					check(err)
+			// 					appDirectory = filepath.Join(buildDirectory, appName)
 
-// 					appDirectory = filepath.Join(buildDirectory, appName)
+			// 					text, err := gitIgnore.ReadFile(".gitignore_python")
+			// 					check(err)
 
-// 					text, err := gitIgnore.ReadFile(".gitignore_python")
-// 					check(err)
+			// 					os.WriteFile(filepath.Join(appDirectory, ".gitignore"), text, 0644)
 
-// 					os.WriteFile(filepath.Join(appDirectory, ".gitignore"), text, 0644)
+			// 					srcDirectory := filepath.Join(appDirectory, "src")
 
-// 					srcDirectory := filepath.Join(appDirectory, "src")
+			// 					err = os.Mkdir(srcDirectory, os.ModePerm)
+			// 					check(err)
 
-// 					err = os.Mkdir(srcDirectory, os.ModePerm)
-// 					check(err)
+			// 					main := `from cakework import Cakework
+			// import time
 
-// 					main := `from cakework import Cakework
-// import time
+			// def say_hello(name):
+			//     time.sleep(5)
+			//     return "Hello " + name + "!"
 
-// def say_hello(name):
-//     time.sleep(5)
-//     return "Hello " + name + "!"
+			// if __name__ == "__main__":
+			//     cakework = Cakework("` + appName + `")
+			//     cakework.add_task(say_hello)
+			// `
 
-// if __name__ == "__main__":
-//     cakework = Cakework("` + appName + `")
-//     cakework.add_task(say_hello)
-// `
+			// 					f, err := os.Create(filepath.Join(srcDirectory, "main.py"))
+			// 					check(err)
+			// 					defer f.Close()
 
-// 					f, err := os.Create(filepath.Join(srcDirectory, "main.py"))
-// 					check(err)
-// 					defer f.Close()
+			// 					f.WriteString(main)
+			// 					f.Sync()
 
-// 					f.WriteString(main)
-// 					f.Sync()
+			// 					// copy Dockerfile into current build directory
+			// 					text, err = dockerfile.ReadFile("Dockerfile")
+			// 					check(err)
+			// 					os.WriteFile(filepath.Join(appDirectory, "Dockerfile"), text, 0644)
 
-// 					// copy Dockerfile into current build directory
-// 					text, err = dockerfile.ReadFile("Dockerfile")
-// 					check(err)
-// 					os.WriteFile(filepath.Join(appDirectory, "Dockerfile"), text, 0644)
+			// 					// TODO debug why this isn't working. for now we have a workaround
+			// 					f, err = os.Create(filepath.Join(appDirectory, ".dockerignore"))
+			// 					check(err)
+			// 					defer f.Close()
 
-// 					// TODO debug why this isn't working. for now we have a workaround
-// 					f, err = os.Create(filepath.Join(appDirectory, ".dockerignore"))
-// 					check(err)
-// 					defer f.Close()
+			// 					f.WriteString("env")
+			// 					f.Sync()
 
-// 					f.WriteString("env")
-// 					f.Sync()
+			// 					// TODO check python version
+			// 					cmd := exec.Command("python3", "-m", "venv", "env")
+			// 					cmd.Dir = appDirectory
+			// 					_, err = shell(cmd) // don't do anything with out?
+			// 					check(err)
 
-// 					// TODO check python version
-// 					cmd := exec.Command("python3", "-m", "venv", "env")
-// 					cmd.Dir = appDirectory
-// 					_, err = shell(cmd) // don't do anything with out?
-// 					check(err)
+			// 					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework")
+			// 					cmd.Dir = appDirectory
+			// 					_, err = shell(cmd) // don't do anything with out?
+			// 					check(err)
 
-// 					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework")
-// 					cmd.Dir = appDirectory
-// 					_, err = shell(cmd) // don't do anything with out?
-// 					check(err)
+			// 					cmd = exec.Command("bash", "-c", "source env/bin/activate; pip3 freeze")
+			// 					cmd.Dir = appDirectory
 
-// 					cmd = exec.Command("bash", "-c", "source env/bin/activate; pip3 freeze")
-// 					cmd.Dir = appDirectory
+			// 					// open the out file for writing
+			// 					outfile, err := os.Create(filepath.Join(appDirectory, "requirements.txt"))
+			// 					check(err)
 
-// 					// open the out file for writing
-// 					outfile, err := os.Create(filepath.Join(appDirectory, "requirements.txt"))
-// 					check(err)
+			// 					defer outfile.Close()
+			// 					cmd.Stdout = outfile
 
-// 					defer outfile.Close()
-// 					cmd.Stdout = outfile
+			// 					err = cmd.Start()
+			// 					check(err)
+			// 					cmd.Wait()
 
-// 					err = cmd.Start()
-// 					check(err)
-// 					cmd.Wait()
+			// 					createExampleClient(appDirectory, appName)
 
-// 					createExampleClient(appDirectory, appName)
+			// 					s.Stop()
 
-// 					s.Stop()
-
-// 					// TODO: will say done even when error out. need to fix!
-// 					fmt.Println("Done creating your new project! 🍰")
-// 					return nil
-// 				},
-// 			},
+			// 					// TODO: will say done even when error out. need to fix!
+			// 					fmt.Println("Done creating your new project! 🍰")
+			// 					return nil
+			// 				},
+			// 			},
 			{
 				Name:  "deploy",
 				Usage: "Deploy your Project",
@@ -317,20 +331,18 @@ func main() {
 					// TODO need to check if we are logged in before deploying!!
 					// TODO: how to set the verbosity for every app?
 					// TODO: should we only allow allowd users to call this action? so as long as someone has the user id in the file then it's ok?
-					
-					
+
 					if !isLoggedIn(*config) {
-						return cli.Exit("Please sign up or log in first", 1)
+						fmt.Println("Please log in with cakework login")
+						return nil
 					}
 
 					fmt.Println("Deploying Your Project...")
-					// find the app name
 					readFile, err := os.Open(filepath.Join(filepath.Join(workingDirectory, "src"), "main.py"))
-
-					// TODO add proper error handling
 					if err != nil {
-						log.Debug(err)
+						return fmt.Errorf("There was an error deploying your project")
 					}
+
 					fileScanner := bufio.NewScanner(readFile)
 
 					fileScanner.Split(bufio.ScanLines)
@@ -351,7 +363,7 @@ func main() {
 					}
 
 					if appName == "" {
-						return cli.Exit("Failed to parse project name from main.py. Please make sure you're in the project directory!", 1)
+						return errors.New("Failed to parse project name from main.py. Please make sure you're in the project directory!")
 					}
 					readFile.Close()
 
@@ -364,11 +376,10 @@ func main() {
 					// parse main.py to get the app name and task name
 					// TODO: fix it so that we're not parsing python code from here
 					readFile, err = os.Open(filepath.Join(filepath.Join(workingDirectory, "src"), "main.py"))
-
-					// TODO add proper error handling
 					if err != nil {
-						log.Debug(err)
+						return fmt.Errorf("Error signing up: : %w", err)
 					}
+
 					fileScanner = bufio.NewScanner(readFile)
 
 					fileScanner.Split(bufio.ScanLines)
@@ -402,7 +413,7 @@ func main() {
 
 					userId, err := getUserId(configFile)
 					if err != nil {
-						return cli.Exit("Failed to get user id from Cakework config", 1)
+						return fmt.Errorf("Failed to get user from cakework config: %w", err)
 					}
 
 					flyAppName := userId + "-" + appName + "-" + taskName
@@ -421,7 +432,9 @@ func main() {
 					// update the fly.toml file
 					flyConfig := filepath.Join(buildDirectory, "fly.toml")
 					input, err := os.ReadFile(flyConfig)
-					check(err)
+					if err != nil {
+						return fmt.Errorf("Failed to read from fly config. %w", err)
+					}
 
 					lines := strings.Split(string(input), "\n")
 
@@ -433,33 +446,35 @@ func main() {
 					}
 					output := strings.Join(lines, "\n")
 					err = ioutil.WriteFile(flyConfig, []byte(output), 0644)
-					check(err)
+					if err != nil {
+						return fmt.Errorf("Failed to write fly config. %w", err)
+					}
 
 					// TODO remove access token from source code and re-create github repo
-					
+
 					// TODO move these parameters to env variables
 					if _, err := fly.CreateApp(flyAppName, buildDirectory); err != nil {
-						return cli.Exit("Failed to create Fly app", 1)
+						return errors.New("Failed to create Fly app")
 					}
 
 					// TODO if ips have previously been allocated, skip this step
 					if _, err := fly.AllocateIpv4(flyAppName, buildDirectory); err != nil {
-						return cli.Exit("Failed to allocate ips for Fly app", 1)
+						return errors.New("Failed to allocate ips for Fly app")
 					}
 
 					// otherwise, create new machine
 					out, err := fly.NewMachine(flyAppName, buildDirectory)
 					if err != nil {
-						return cli.Exit("Failed to deploy app fo Fly machine", 1)
-					}
-					machineId, state, image, err1 := fly.GetMachineInfo(out)
-					// fmt.Printf("%s %s %s", machineId, state, image)
-					if err1 != nil {
-						fmt.Println("got an error")
-						fmt.Println(err1)
+						return errors.New("Failed to deploy app to Fly machine")
 					}
 
-					// make this a shared variable? 
+					machineId, state, image, err := fly.GetMachineInfo(out)
+					// fmt.Printf("%s %s %s", machineId, state, image)
+					if err != nil {
+						return errors.New("Failed to get info from fly machine")
+					}
+
+					// make this a shared variable?
 					// how to make sure the tokens are up to date?
 					// frontendClient := frontendclient.New("https://cakework-frontend.fly.dev", config.AccessToken, config.RefreshToken, "")
 					// frontendClient := frontendclient.New("https://cakework-frontend.fly.dev", credsProvider)
@@ -468,127 +483,127 @@ func main() {
 					name := uuid.New().String() // generate a random string for the name
 					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image)
 					if err != nil {
-						return cli.Exit("Failed to store deployed task in database", 1)
+						return errors.New("Failed to store deployed task in database")
 					}
 
 					out, err = fly.NewMachine(flyAppName, buildDirectory)
 					if err != nil {
-						return cli.Exit("Failed to deploy app fo Fly machine", 1)
+						return errors.New("Failed to deploy app to Fly machine")
 					}
 
 					log.Debug("machineId: %s state: %s image: %s", machineId, state, image)
-					if err != nil {
-						fmt.Println("got an error")
-						fmt.Println(err)
-					}
 
 					s.Stop()
 
 					// TODO run thcis (even if file doesn't exist) after every
 					err = os.Remove(filepath.Join(buildDirectory, "fly.toml"))
 					if err != nil {
-						fmt.Println("Failed to clean up build artifacts")
-						fmt.Println(err)
+						return errors.New("Failed to clean up build artifacts")
 					}
 
 					fmt.Println("Successfully deployed your tasks! 🍰")
 					return nil
-					
+
 				},
-			// }, {
-			// 	Name:  "task",
-			// 	Usage: "Interact with your Tasks (e.g. get logs)",
-			// 	Subcommands: []*cli.Command{
-			// 		{
-			// 			Name:      "logs",
-			// 			Usage:     "Get request logs for a task",
-			// 			UsageText: "cakework task status [PROJECT_NAME] [TASK_NAME] [command options]",
-			// 			// Flags: []cli.Flag{
-			// 			// 	&cli.StringFlag{
-			// 			// 		Name:        "status",
-			// 			// 		Value:       "",
-			// 			// 		Usage:       "Status to filter by. PENDING, IN_PROGRESS, SUCCEEDED, or FAILED",
-			// 			// 		Destination: &status,
-			// 			// 	},
-			// 			// },
-			// 			Action: func(cCtx *cli.Context) error {
-			// 				if cCtx.NArg() != 2 {
-			// 					return cli.Exit("Please specify 2 parameters - Project name and Task Name.", 1)
-			// 				}
+				// }, {
+				// 	Name:  "task",
+				// 	Usage: "Interact with your Tasks (e.g. get logs)",
+				// 	Subcommands: []*cli.Command{
+				// 		{
+				// 			Name:      "logs",
+				// 			Usage:     "Get request logs for a task",
+				// 			UsageText: "cakework task status [PROJECT_NAME] [TASK_NAME] [command options]",
+				// 			// Flags: []cli.Flag{
+				// 			// 	&cli.StringFlag{
+				// 			// 		Name:        "status",
+				// 			// 		Value:       "",
+				// 			// 		Usage:       "Status to filter by. PENDING, IN_PROGRESS, SUCCEEDED, or FAILED",
+				// 			// 		Destination: &status,
+				// 			// 	},
+				// 			// },
+				// 			Action: func(cCtx *cli.Context) error {
+				// 				if cCtx.NArg() != 2 {
+				// 					return cli.Exit("Please specify 2 parameters - Project name and Task Name.", 1)
+				// 				}
 
-			// 				appName := cCtx.Args().Get(0)
-			// 				taskName := cCtx.Args().Get(1)
+				// 				appName := cCtx.Args().Get(0)
+				// 				taskName := cCtx.Args().Get(1)
 
-			// 				var statuses []string
-			// 				// status := cCtx.String("status")
-			// 				// if status != "" {
-			// 				// 	statuses = append(statuses, status)
-			// 				// }
+				// 				var statuses []string
+				// 				// status := cCtx.String("status")
+				// 				// if status != "" {
+				// 				// 	statuses = append(statuses, status)
+				// 				// }
 
-			// 				userId := getUserId()
-			// 				taskLogs := frontend.GetTaskLogs(userId, appName, taskName, statuses)
+				// 				userId := getUserId()
+				// 				taskLogs := frontend.GetTaskLogs(userId, appName, taskName, statuses)
 
-			// 				if len(taskLogs.Requests) == 0 {
-			// 					fmt.Println("Task " + appName + "/" + taskName + " does not exist, or you haven't run the task yet.")
-			// 					return nil
-			// 				}
+				// 				if len(taskLogs.Requests) == 0 {
+				// 					fmt.Println("Task " + appName + "/" + taskName + " does not exist, or you haven't run the task yet.")
+				// 					return nil
+				// 				}
 
-			// 				t := table.NewWriter()
-			// 				t.SetOutputMirror(os.Stdout)
-			// 				t.AppendHeader(table.Row{"Request Id", "Status", "Parameters", "Result"})
-			// 				for _, request := range taskLogs.Requests {
-			// 					t.AppendRow([]interface{}{
-			// 						request.RequestId,
-			// 						request.Status,
-			// 						request.Parameters,
-			// 						request.Result,
-			// 					})
-			// 				}
-			// 				t.Render()
+				// 				t := table.NewWriter()
+				// 				t.SetOutputMirror(os.Stdout)
+				// 				t.AppendHeader(table.Row{"Request Id", "Status", "Parameters", "Result"})
+				// 				for _, request := range taskLogs.Requests {
+				// 					t.AppendRow([]interface{}{
+				// 						request.RequestId,
+				// 						request.Status,
+				// 						request.Parameters,
+				// 						request.Result,
+				// 					})
+				// 				}
+				// 				t.Render()
 
-			// 				return nil
-			// 			},
-			// 		},
-			// 	},
-			// }, {
-			// 	Name:  "request",
-			// 	Usage: "Interact with your Requests (e.g. get logs)",
-			// 	Subcommands: []*cli.Command{
-			// 		{
-			// 			Name:      "status",
-			// 			Usage:     "Get processing status for your single request",
-			// 			UsageText: "cakework request status [REQUEST_ID]",
-			// 			Action: func(cCtx *cli.Context) error {
-			// 				if cCtx.NArg() != 1 {
-			// 					return cli.Exit("Please include one parameter, the Request ID", 1)
-			// 				}
+				// 				return nil
+				// 			},
+				// 		},
+				// 	},
+				// }, {
+				// 	Name:  "request",
+				// 	Usage: "Interact with your Requests (e.g. get logs)",
+				// 	Subcommands: []*cli.Command{
+				// 		{
+				// 			Name:      "status",
+				// 			Usage:     "Get processing status for your single request",
+				// 			UsageText: "cakework request status [REQUEST_ID]",
+				// 			Action: func(cCtx *cli.Context) error {
+				// 				if cCtx.NArg() != 1 {
+				// 					return cli.Exit("Please include one parameter, the Request ID", 1)
+				// 				}
 
-			// 				userId := getUserId()
-			// 				requestId := cCtx.Args().Get(0)
+				// 				userId := getUserId()
+				// 				requestId := cCtx.Args().Get(0)
 
-			// 				requestStatus := getRequestStatus(userId, requestId)
+				// 				requestStatus := getRequestStatus(userId, requestId)
 
-			// 				if requestStatus != "" {
-			// 					fmt.Println(requestStatus)
-			// 				}
+				// 				if requestStatus != "" {
+				// 					fmt.Println(requestStatus)
+				// 				}
 
-			// 				return nil
-			// 			},
-					// },
+				// 				return nil
+				// 			},
+				// },
 				// },
 			},
 		},
 	}
 
 	err = app.Run(os.Args)
-	check(err)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
-func createExampleClient(appDirectory string, appName string) {
+func createExampleClient(appDirectory string, appName string) error {
 	// create sample client
 	exampleClientDirectory := filepath.Join(appDirectory, "example_client")
 	err := os.Mkdir(exampleClientDirectory, os.ModePerm)
-	check(err)
+	if err != nil {
+		return err
+	}
 	exampleClient := `from cakework import Client
 import time
 
@@ -613,37 +628,14 @@ if __name__ == "__main__":
 `
 
 	f, err := os.Create(filepath.Join(exampleClientDirectory, "main.py"))
-	check(err)
+	if err != nil {
+		return err
+	}
 	defer f.Close()
 
 	f.WriteString(exampleClient)
 	f.Sync()
-}
 
-func check(e error) urfaveCli.ExitCoder {
-	if e != nil {
-		fmt.Println(e)
-		return urfaveCli.Exit("Failed", 1)
-		// TODO how to cause the program to exit?
-	}
-	return nil
-}
-
-func Check(e error) urfaveCli.ExitCoder {
-	if e != nil {
-		fmt.Println(e)
-		return urfaveCli.Exit("Failed", 1)
-		// TODO how to cause the program to exit?
-	}
-	return nil
-}
-
-func CheckPanic(e error) urfaveCli.ExitCoder {
-	if e != nil {
-		fmt.Println(e)
-		return urfaveCli.Exit("Failed", 1)
-		// TODO how to cause the program to exit?
-	}
 	return nil
 }
 
@@ -739,7 +731,7 @@ func Dir(src string, dst string) error {
 	return nil
 }
 
-func openBrowser(url string) {
+func openBrowser(url string) error {
 	var err error
 	switch runtime.GOOS {
 	case "linux":
@@ -751,30 +743,8 @@ func openBrowser(url string) {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	check(err)
-}
 
-func responseWithJSON(writer io.Writer, content []byte, status int) {
-}
-
-func errWithJSON(writeri io.Writer, content string, status int) {
-
-}
-
-func verifyTokenController(w http.ResponseWriter, r *http.Request) {
-	prefix := "Bearer "
-	authHeader := r.Header.Get("Authorization")
-	reqToken := strings.TrimPrefix(authHeader, prefix)
-
-	// log.Println(reqToken)
-
-	if authHeader == "" || reqToken == authHeader {
-		errWithJSON(w, "Authentication header not present or malformed", http.StatusUnauthorized)
-		return
-	}
-	// log.Println(reqToken)
-	responseWithJSON(w, []byte(`{"message":"Token is valid"}`), http.StatusOK)
-
+	return err
 }
 
 func signUpOrLogin() error {
@@ -792,13 +762,16 @@ func signUpOrLogin() error {
 	req, _ := http.NewRequest("POST", url, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-	data, res := cwHttp.CallHttp(req)
+	data, res, err := cwHttp.CallHttp(req)
+	if err != nil {
+		return err
+	}
 
 	if res.StatusCode != 200 {
 		log.Debug(res.StatusCode)
 		log.Debug(res)
 		log.Debug(data)
-		return cli.Exit("Failed to log in using device code", 1)
+		return errors.New("Failed to log in using device code " + res.Status)
 	}
 
 	verificationUrl := data["verification_uri_complete"].(string)
@@ -807,7 +780,10 @@ func signUpOrLogin() error {
 	userCode := data["user_code"].(string)
 	fmt.Println("User code: " + userCode)
 
-	openBrowser(verificationUrl)
+	err = openBrowser(verificationUrl)
+	if err != nil {
+		return err
+	}
 
 	var accessToken string
 	var refreshToken string
@@ -823,7 +799,10 @@ func signUpOrLogin() error {
 		log.Debug("payload to /token endpoint:")
 		req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-		data, res = cwHttp.CallHttp(req)
+		data, res, err = cwHttp.CallHttp(req)
+		if err != nil {
+			return err
+		}
 
 		if _, ok := data["access_token"]; ok {
 			log.Debug("Successfully got an access token!")
@@ -834,16 +813,6 @@ func signUpOrLogin() error {
 			time.Sleep(5 * time.Second) // TODO actually get the interval from above
 		}
 	}
-
-	// keep this?
-	// if accessToken == "" {
-	// 	fmt.Println("Failed to fetch an access token") // is there error handling to do here?
-	// 	return nil
-	// // }
-	// if refreshToken == "Failed to fetch a refresh token" {
-	// 	fmt.Println("Failed to fetch an refresh token")
-	// 	return nil
-	// }
 
 	log.Debug("access_token: " + accessToken)
 	log.Debug("refresh_token: " + refreshToken)
@@ -860,18 +829,20 @@ func signUpOrLogin() error {
 
 	req, _ = http.NewRequest("GET", url, nil)
 
-	data, res = cwHttp.CallHttpAuthed(req, credsProvider)
+	data, res, err = cwHttp.CallHttpAuthed(req, credsProvider)
+	if err != nil {
+		return err
+	}
 
 	if res.StatusCode != 200 {
 		log.Debug(res.StatusCode)
 		log.Debug(res)
 		log.Debug(data)
-		return cli.Exit("Failed to get user info", 1)
+		return errors.New("Failed to get user info " + res.Status)
 	}
 
 	sub := data["sub"].(string)
 	userId := strings.Split(sub, "|")[1]
-	log.Debug("Got userId: " + userId) // TODO delete this
 	config.UserId = userId
 	cwConfig.UpdateConfig(config, configFile)
 
@@ -896,16 +867,23 @@ func getUserId(configFile string) (string, error) {
 
 // this also writes to the config file
 // note: field name needs to be in all caps!
-func addConfigValue(field string, value string) {
+func addConfigValue(field string, value string) error {
 	v := reflect.ValueOf(&config).Elem().FieldByName(field)
 	if v.IsValid() {
 		v.SetString(value)
 	}
 
-	file, _ := json.MarshalIndent(config, "", " ")
+	file, err := json.MarshalIndent(config, "", " ")
+	if err != nil {
+		return err
+	}
 
-	err := ioutil.WriteFile(configFile, file, 0644)
-	check(err)
+	err = ioutil.WriteFile(configFile, file, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type CustomClaimsExample struct {
