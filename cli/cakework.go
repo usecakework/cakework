@@ -180,7 +180,7 @@ func main() {
 				UsageText: "cakework create-client-token [TOKEN_NAME] [command options] [arguments...]",
 				Action: func(cCtx *cli.Context) error {
 					if !isLoggedIn(*config) {
-						fmt.Println("Please log in with cakework login.")
+						fmt.Println("Please signup (cakework signup) or log in (cakework login).")
 						return nil
 					}
 
@@ -213,132 +213,154 @@ func main() {
 					return nil
 				},
 			},
-			// 			{
-			// 				Name:      "new",
-			// 				Usage:     "Create a new project",
-			// 				UsageText: "cakework new [PROJECT_NAME] [command options] [arguments...]",
-			// 				Flags: []cli.Flag{
-			// 					&cli.StringFlag{
-			// 						Name:        "lang",
-			// 						Value:       "python",
-			// 						Usage:       "language for the project. Defaults to python 3.8",
-			// 						Destination: &language,
-			// 					},
-			// 				},
-			// 				Action: func(cCtx *cli.Context) error {
-			// 					if !isLoggedIn() {
-			// 						fmt.Println("Please sign up or log in first")
-			// 						return nil
-			// 					}
+			{
+				Name:      "new",
+				Usage:     "Create a new project",
+				UsageText: "cakework new [flags] [PROJECT_NAME]",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:        "lang",
+						Value:       "python",
+						Usage:       "language for the project. Defaults to python 3.8",
+						Destination: &language,
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					if !isLoggedIn(*config) {
+						fmt.Println("Please signup (cakework signup) or log in (cakework login).")
+						return nil
+					}
 
-			// 					if cCtx.NArg() > 0 {
-			// 						appName = cCtx.Args().Get(0)
-			// 						// write out app name to config file
-			// 						// TODO in the future we won't
-			// 						// TODO write this out in json form
-			// 						addConfigValue("App", appName)
+					if cCtx.NArg() > 0 {
+						appName = cCtx.Args().Get(0)
+					} else {
+						return errors.New("Please include the name of your new project")
+					}
 
-			// 					} else {
-			// 						return cli.Exit("Please include a Project name", 1)
-			// 					}
-			// 					lang := cCtx.String("lang")
-			// 					if lang == "python" {
-			// 						// Q: why isn't this getting printed out?
-			// 					} else {
-			// 						return cli.Exit("Language "+lang+" not supported", 1)
-			// 					}
-			// 					fmt.Println("Creating your new Cakework project " + appName + "...")
+					lang := cCtx.String("lang")
+					if lang != "python" {
+						return errors.New("Language " + lang + " not supported.")
+					}
 
-			// 					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
-			// 					s.Start()                                                   // Start the spinner
+					fmt.Println("Creating your new Cakework project " + appName + "...")
 
-			// 					err := os.Mkdir(appName, os.ModePerm)
-			// 					check(err)
+					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
+					s.Start()                                                   // Start the spinner
 
-			// 					appDirectory = filepath.Join(buildDirectory, appName)
+					err := os.Mkdir(appName, os.ModePerm)
+					if err != nil {
+						return fmt.Errorf("Error making directory for new project: %w", err)
+					}
 
-			// 					text, err := gitIgnore.ReadFile(".gitignore_python")
-			// 					check(err)
+					appDirectory = filepath.Join(buildDirectory, appName)
 
-			// 					os.WriteFile(filepath.Join(appDirectory, ".gitignore"), text, 0644)
+					text, err := gitIgnore.ReadFile(".gitignore_python")
+					if err != nil {
+						return fmt.Errorf("Error building gitignore file: %w", err)
+					}
 
-			// 					srcDirectory := filepath.Join(appDirectory, "src")
+					err = os.WriteFile(filepath.Join(appDirectory, ".gitignore"), text, 0644)
+					if err != nil {
+						return fmt.Errorf("Error building gitignore file: %w", err)
+					}
 
-			// 					err = os.Mkdir(srcDirectory, os.ModePerm)
-			// 					check(err)
+					srcDirectory := filepath.Join(appDirectory, "src")
 
-			// 					main := `from cakework import Cakework
-			// import time
+					err = os.Mkdir(srcDirectory, os.ModePerm)
+					if err != nil {
+						return fmt.Errorf("Error creating source directory: %w", err)
+					}
 
-			// def say_hello(name):
-			//     time.sleep(5)
-			//     return "Hello " + name + "!"
+					main := `from cakework import Cakework
+import time
 
-			// if __name__ == "__main__":
-			//     cakework = Cakework("` + appName + `")
-			//     cakework.add_task(say_hello)
-			// `
+def say_hello(name):
+	time.sleep(5)
+	return "Hello " + name + "!"
 
-			// 					f, err := os.Create(filepath.Join(srcDirectory, "main.py"))
-			// 					check(err)
-			// 					defer f.Close()
+if __name__ == "__main__":
+	cakework = Cakework("` + appName + `")
+	cakework.add_task(say_hello)
+`
 
-			// 					f.WriteString(main)
-			// 					f.Sync()
+					f, err := os.Create(filepath.Join(srcDirectory, "main.py"))
+					if err != nil {
+						return fmt.Errorf("Error creating main.py: %w", err)
+					}
 
-			// 					// copy Dockerfile into current build directory
-			// 					text, err = dockerfile.ReadFile("Dockerfile")
-			// 					check(err)
-			// 					os.WriteFile(filepath.Join(appDirectory, "Dockerfile"), text, 0644)
+					defer f.Close()
 
-			// 					// TODO debug why this isn't working. for now we have a workaround
-			// 					f, err = os.Create(filepath.Join(appDirectory, ".dockerignore"))
-			// 					check(err)
-			// 					defer f.Close()
+					f.WriteString(main)
+					f.Sync()
 
-			// 					f.WriteString("env")
-			// 					f.Sync()
+					// copy Dockerfile into current build directory
+					text, err = dockerfile.ReadFile("Dockerfile")
+					if err != nil {
+						return fmt.Errorf("Error creating Dockerfile: %w", err)
+					}
+					err = os.WriteFile(filepath.Join(appDirectory, "Dockerfile"), text, 0644)
+					if err != nil {
+						return fmt.Errorf("Error creating Dockerfile: %w", err)
+					}
 
-			// 					// TODO check python version
-			// 					cmd := exec.Command("python3", "-m", "venv", "env")
-			// 					cmd.Dir = appDirectory
-			// 					_, err = shell(cmd) // don't do anything with out?
-			// 					check(err)
+					// TODO debug why this isn't working. for now we have a workaround
+					f, err = os.Create(filepath.Join(appDirectory, ".dockerignore"))
+					if err != nil {
+						return fmt.Errorf("Error creating dockerignore: %w", err)
+					}
+					defer f.Close()
 
-			// 					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework")
-			// 					cmd.Dir = appDirectory
-			// 					_, err = shell(cmd) // don't do anything with out?
-			// 					check(err)
+					f.WriteString("env")
+					f.Sync()
 
-			// 					cmd = exec.Command("bash", "-c", "source env/bin/activate; pip3 freeze")
-			// 					cmd.Dir = appDirectory
+					// TODO check python version
+					cmd := exec.Command("python3", "-m", "venv", "env")
+					cmd.Dir = appDirectory
+					_, err = shell(cmd) // don't do anything with out?
+					if err != nil {
+						return fmt.Errorf("Error creating virtual env: %w", err)
+					}
 
-			// 					// open the out file for writing
-			// 					outfile, err := os.Create(filepath.Join(appDirectory, "requirements.txt"))
-			// 					check(err)
+					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework")
+					cmd.Dir = appDirectory
+					_, err = shell(cmd) // don't do anything with out?
+					if err != nil {
+						return fmt.Errorf("Error installing dependencies: %w", err)
+					}
 
-			// 					defer outfile.Close()
-			// 					cmd.Stdout = outfile
+					cmd = exec.Command("bash", "-c", "source env/bin/activate; pip3 freeze")
+					cmd.Dir = appDirectory
 
-			// 					err = cmd.Start()
-			// 					check(err)
-			// 					cmd.Wait()
+					// open the out file for writing
+					outfile, err := os.Create(filepath.Join(appDirectory, "requirements.txt"))
+					if err != nil {
+						return fmt.Errorf("Error creating requirements.txt: %w", err)
+					}
 
-			// 					createExampleClient(appDirectory, appName)
+					defer outfile.Close()
+					cmd.Stdout = outfile
 
-			// 					s.Stop()
+					err = cmd.Start()
+					if err != nil {
+						return fmt.Errorf("Error writing to requirements.txt: %w", err)
+					}
+					cmd.Wait()
 
-			// 					// TODO: will say done even when error out. need to fix!
-			// 					fmt.Println("Done creating your new project! 🍰")
-			// 					return nil
-			// 				},
-			// 			},
+					createExampleClient(appDirectory, appName)
+
+					s.Stop()
+
+					// TODO: will say done even when error out. need to fix!
+					fmt.Println("Done creating your new project! 🍰")
+					return nil
+				},
+			},
 			{
 				Name:  "deploy",
 				Usage: "Deploy your Project",
 				Action: func(cCtx *urfaveCli.Context) error {
 					if !isLoggedIn(*config) {
-						fmt.Println("Please log in with cakework login")
+						fmt.Println("Please signup (cakework signup) or log in (cakework login).")
 						return nil
 					}
 
@@ -517,7 +539,7 @@ func main() {
 				// 		{
 				// 			Name:      "logs",
 				// 			Usage:     "Get request logs for a task",
-				// 			UsageText: "cakework task status [PROJECT_NAME] [TASK_NAME] [command options]",
+				// 			UsageText: "cakework task status [flags] [PROJECT_NAME] [TASK_NAME]",
 				// 			// Flags: []cli.Flag{
 				// 			// 	&cli.StringFlag{
 				// 			// 		Name:        "status",
