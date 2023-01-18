@@ -27,7 +27,7 @@ import (
 	urfaveCli "github.com/urfave/cli/v2"
 	"github.com/usecakework/cakework/lib/auth"
 	cwConfig "github.com/usecakework/cakework/lib/config"
-	"github.com/usecakework/cakework/lib/fly"
+	"github.com/usecakework/cakework/lib/flyCli"
 	"github.com/usecakework/cakework/lib/frontendclient"
 	cwHttp "github.com/usecakework/cakework/lib/http"
 )
@@ -57,7 +57,7 @@ func main() {
 	// buildDirectory := filepath.Join(workingDirectory, "build") // TODO figure out how to obfuscate all build files
 	buildDirectory := workingDirectory
 	dirname, _ := os.UserHomeDir()
-	fly := fly.New(dirname + "/.cakework/.fly/bin/fly", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo", "sahale") //TODO extract secrets and rotate
+	fly := flyCli.New(dirname + "/.cakework/.fly/bin/fly", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo", "sahale") //TODO extract secrets and rotate
 	cakeworkDirectory := dirname + "/.cakework"
 
 	log.Debug("appName: " + appName)
