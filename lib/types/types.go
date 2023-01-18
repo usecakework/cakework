@@ -71,6 +71,7 @@ type CreateMachineRequest struct {
 	MachineId string `json:"machineId"`
 	State     string `json:"state"`
 	Image     string `json:"image"`
+	Source    string `json:"source"`
 }
 
 type CreateMachineResponse struct {
@@ -82,6 +83,7 @@ type CreateMachineResponse struct {
 	MachineId string `json:"machineId"`
 	State     string `json:"state"`
 	Image     string `json:"image"`
+	Source    string `json:"source"`
 	CreatedAt int64  `json:"created_at"`
 	UpdatedAt int64  `json:"updated_at"`
 }

@@ -510,7 +510,7 @@ if __name__ == "__main__":
 					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
 
 					name := uuid.New().String() // generate a random string for the name
-					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image)
+					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image, "CLI")
 					if err != nil {
 						return errors.New("Failed to store deployed task in database")
 					}

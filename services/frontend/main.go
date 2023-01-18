@@ -708,8 +708,8 @@ func createMachine(c *gin.Context) {
 	task := util.SanitizeTaskName(req.Task)
 	flyApp := userId + "-" + project + "-" + task
 
-	query := "INSERT INTO `FlyMachine` (`userId`, `project`, `task`, `flyApp`, `name`, `machineId`, `state`, `image`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-	insertResult, err := db.ExecContext(context.Background(), query, userId, project, task, flyApp, req.Name, req.MachineId, req.State, req.Image)
+	query := "INSERT INTO `FlyMachine` (`userId`, `project`, `task`, `flyApp`, `name`, `machineId`, `state`, `image`, `source`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	insertResult, err := db.ExecContext(context.Background(), query, userId, project, task, flyApp, req.Name, req.MachineId, req.State, req.Image, req.Source)
 	if err != nil {
 		log.Printf("impossible to insert : %s", err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})

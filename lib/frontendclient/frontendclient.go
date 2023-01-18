@@ -28,7 +28,7 @@ func New(url string, credentialsProvider auth.CredentialsProvider) *Client {
 }
 
 // TODO change all instances of appName to project
-func (client *Client) CreateMachine(userId string, project string, task string, name string, machineId string, state string, image string) error {
+func (client *Client) CreateMachine(userId string, project string, task string, name string, machineId string, state string, image string, source string) error {
 	flyApp := fly.GetFlyAppName(userId, project, task)
 
 	url := client.Url + "/create-machine"
@@ -41,6 +41,7 @@ func (client *Client) CreateMachine(userId string, project string, task string, 
 		MachineId: machineId,
 		State:     state,
 		Image:     image,
+		Source:    source,
 	}
 
 	_, res, err := http.Call(url, "POST", req, client.CredentialsProvider)

@@ -10,8 +10,6 @@ import (
 	"github.com/usecakework/cakework/lib/http"
 )
 
-const FLY_API_HOSTNAME = "_api.internal:4280"
-
 /**
 VM options
 fly platform vm-sizes
@@ -60,18 +58,24 @@ func New(org string, endpoint string, credentialsProvider auth.BearerStringCrede
 // Q: should this return machine info?
 func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, memoryMB int) error {
 	// make a post request to the internal fly api endpoint
-	url, _ := MachineUrl(flyApp)
+	url, _ := fly.MachineUrl(flyApp)
+
+	fmt.Println("Calling: " + url + " to deploy new machine")
+
 	req := Request{
 		Name: flyApp,
 		Config: Config{
 			Image: image,
 			Guest: Guest{
-				CPUKind:  "dedicated", // always use this
+				CPUKind:  "shared", // Q: support dedicated?
 				CPUs:     cpus,
 				MemoryMB: memoryMB,
 			},
 		},
 	}
+
+
+	fmt.Println(req)
 
 	data, res, err := http.Call(url, "POST", req, fly.CredentialsProvider)
 	if err != nil {
@@ -85,8 +89,8 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 	return nil
 }
 
-func MachineUrl(flyApp string) (string, error) {
-	u, err := url.Parse(FLY_API_HOSTNAME)
+func (fly *Fly) MachineUrl(flyApp string) (string, error) {
+	u, err := url.Parse(fly.Endpoint)
 	if err != nil {
 		return "", err
 	}
