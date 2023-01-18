@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/MicahParks/keyfunc"
@@ -18,14 +17,14 @@ import (
 
 var (
 	tokenURL string = "https://dev-qanxtedlpguucmz5.us.auth0.com/oauth/token"
-	jwksURL string = "https://dev-qanxtedlpguucmz5.us.auth0.com/.well-known/jwks.json"
+	jwksURL  string = "https://dev-qanxtedlpguucmz5.us.auth0.com/.well-known/jwks.json"
 )
 
 type Credentials struct {
-	Type string // either API_KEY or BEARER
-	AccessToken string // "" if type is API_KEY
+	Type         string // either API_KEY or BEARER
+	AccessToken  string // "" if type is API_KEY
 	RefreshToken string // "" if type is API_KEY
-	ApiKey string // "" if type is BEARER
+	ApiKey       string // "" if type is BEARER
 }
 
 // type NoCredentialsCredentialsProvider
@@ -78,50 +77,13 @@ func (p BearerCredentialsProvider) GetCredentials() (*Credentials, error) {
 		}
 	}
 
-	return &Credentials {
-		Type: "BEARER",
-		AccessToken: config.AccessToken,
+	return &Credentials{
+		Type:         "BEARER",
+		AccessToken:  config.AccessToken,
 		RefreshToken: config.RefreshToken,
-		ApiKey: "",
+		ApiKey:       "",
 	}, nil
 }
-
-/*
-// TODO check if token is valid here. If it's not valid (empty or expired), fetch a token
-// Q: if we tweak the config here, will it be updated in main?
-func NewRequestWithAuth(method string, url string, body io.Reader, config *config.Config) (*http.Request, error) {
-	req, err := http.NewRequest(method, url, body)
-    if err != nil {
-        return nil, err
-    }
-	// config := LoadConfig()
-
-	// Q: what if the they're logged in but neither token are valid?
-	// if config.AccessToken == "" || config.RefreshToken == "" {
-	// 	fmt.Println("Please sign up or log in first to get access tokens")
-	// 	os.Exit(1)
-	// }
-
-	// note: this below doesn't apply for non bearer token flows!
-	// TODO need to fix.
-	if config.AccessToken == "" || config.RefreshToken == "" {
-		fmt.Println("Please sign up or log in first to get access tokens")
-		os.Exit(1)
-	}
-	var validToken string
-	if IsTokenExpired(config.AccessToken) {
-		newAccessToken, _ := RefreshTokens(config)
-		validToken = newAccessToken
-	} else {
-		validToken = config.AccessToken
-	}
-
-    req.Header.Add("Authorization", "Bearer " + validToken)
-	req.Header.Add("Content-Type", "application/json")
-
-    return req, nil
-}
-*/
 
 func IsTokenValid(token string) (bool, error) {
 	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{}) // See recommended options in the examples directory.
@@ -154,22 +116,25 @@ func IsTokenExpired(token string) bool {
 }
 
 // this may return status code 404 if user hasn't yet entered in the device code
-func GetTokens(deviceCode string) (string, string) {
+func GetTokens(deviceCode string) (string, string, error) {
 	// if using the creds to call an api, need to use the API's Identifier as the audience
 	payload := strings.NewReader("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=" + deviceCode + "&client_id=rqbQ3XWpM2C0vRCzKwC6CXXnKe9aCSmb")
 
 	req, _ := http.NewRequest("POST", tokenURL, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-    data, res := CallHttp(req)
-	
+	data, res, err := CallHttp(req)
+	if err != nil {
+		return "", "", nil
+	}
+
 	if res.StatusCode == 200 {
 		log.Debug("Successfully got an access token!")
 		accessToken := data["access_token"].(string)
 		refreshToken := data["refresh_token"].(string)
-		return accessToken, refreshToken
+		return accessToken, refreshToken, nil
 	} else {
-		return "", ""
+		return "", "", errors.New("Could not get access token, error from server " + res.Status)
 	}
 }
 
@@ -182,9 +147,12 @@ func RefreshTokens(config config.Config) (string, string, error) {
 
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-	data, res := CallHttp(req) // should this raise an error? 
+	data, res, err := CallHttp(req)
+	if err != nil {
+		return "", "", err
+	}
 
-	if (res.StatusCode == 201 || res.StatusCode == 200) /*&& strings.Contains(stringBody, "access_token")*/ {
+	if res.StatusCode == 201 || res.StatusCode == 200 /*&& strings.Contains(stringBody, "access_token")*/ {
 		accessToken := data["access_token"].(string)
 		refreshToken := data["refresh_token"].(string)
 		return accessToken, refreshToken, nil
@@ -196,26 +164,17 @@ func RefreshTokens(config config.Config) (string, string, error) {
 	}
 }
 
-// copy pasta from the http package to avoid circular dependency. Think of a better way to address thi 
-func CallHttp(req *http.Request) (bodyMap map[string]interface{}, res *http.Response) {
+func CallHttp(req *http.Request) (bodyMap map[string]interface{}, res *http.Response, err error) {
 	res, _ = http.DefaultClient.Do(req)
 
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
-	CheckOsExit(err)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if err := json.Unmarshal([]byte(string(body)), &bodyMap); err != nil {
-		fmt.Println(err)
-		fmt.Println(string(body))
-		fmt.Println(res)
-		os.Exit(1)
+		return nil, nil, err
 	}
 	return
-}
-
-// copy pasta from the http package to avoid circular dependency. Think of a better way to address thi 
-func CheckOsExit(e error) {
-	if e != nil {
-		fmt.Println(e)
-		os.Exit(1)
-	}
 }

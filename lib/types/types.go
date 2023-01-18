@@ -56,35 +56,34 @@ type GetStatusResponse struct {
 }
 
 type GetTaskLogsRequest struct {
-	UserId string `json:"userId"`
-	App    string `json:"app"`
-	Task   string `json:"task"`
+	UserId       string `json:"userId"`
+	App          string `json:"app"`
+	Task         string `json:"task"`
 	StatusFilter string `json:"status_filter"`
 }
 
 type CreateMachineRequest struct {
-	UserId string `json:"userId"`
-	Project string `json:"project"`
-	Task string `json:"task"`
-	FlyApp string `json:"flyApp"`
-	Name string `json:"name"`
+	UserId    string `json:"userId"`
+	Project   string `json:"project"`
+	Task      string `json:"task"`
+	FlyApp    string `json:"flyApp"`
+	Name      string `json:"name"`
 	MachineId string `json:"machineId"`
-	State string `json:"state"`
-	Image string `json:"image"`
+	State     string `json:"state"`
+	Image     string `json:"image"`
 }
 
-// TODO should have things like created and and updated at as well
 type CreateMachineResponse struct {
-	UserId string `json:"userId"`
-	Project string `json:"project"`
-	Task string `json:"task"`
-	FlyApp string `json:"flyApp"`
-	Name string `json:"name"`
+	UserId    string `json:"userId"`
+	Project   string `json:"project"`
+	Task      string `json:"task"`
+	FlyApp    string `json:"flyApp"`
+	Name      string `json:"name"`
 	MachineId string `json:"machineId"`
-	State string `json:"state"`
-	Image string `json:"image"`
-	CreatedAt  int64  `json:"created_at"`
-	UpdatedAt  int64  `json:"updated_at"`
+	State     string `json:"state"`
+	Image     string `json:"image"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type GetResultRequest struct {

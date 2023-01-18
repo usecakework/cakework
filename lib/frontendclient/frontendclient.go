@@ -1,8 +1,8 @@
 package frontendclient
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
 	"github.com/usecakework/cakework/lib/auth"
 	fly "github.com/usecakework/cakework/lib/fly/cli"
@@ -11,14 +11,14 @@ import (
 )
 
 type Client struct {
-	Url string
+	Url                 string
 	CredentialsProvider auth.CredentialsProvider
 }
 
 func New(url string, credentialsProvider auth.CredentialsProvider) *Client {
-// func New(url string, accessToken string, refreshToken string, apiKey string) *Client {
+	// func New(url string, accessToken string, refreshToken string, apiKey string) *Client {
 	client := &Client{
-		Url: url,
+		Url:                 url,
 		CredentialsProvider: credentialsProvider,
 	}
 
@@ -31,70 +31,70 @@ func (client *Client) CreateMachine(userId string, project string, task string, 
 
 	url := client.Url + "/create-machine"
 	req := types.CreateMachineRequest{
-		UserId: userId,
-		Project: project,
-		Task: task,
-		FlyApp: flyApp,
-		Name: name,
+		UserId:    userId,
+		Project:   project,
+		Task:      task,
+		FlyApp:    flyApp,
+		Name:      name,
 		MachineId: machineId,
-		State: state,
-		Image: image,
+		State:     state,
+		Image:     image,
 	}
 
-	// TODO possibly improve error handling by checking status code here and returning an error message
-	_, res := http.Call(url, "POST", req, client.CredentialsProvider)
-	if res.StatusCode != 201 {
-		fmt.Println("Failed to call Frontend to create machine")
-		os.Exit(1)
+	_, res, err := http.Call(url, "POST", req, client.CredentialsProvider)
+	if err != nil {
+		return err
 	}
-	// TODO: should have the inner processes propagate up the errors instead of exiting?
+
+	if res.StatusCode != 201 {
+		// TODO pass up body string as well
+		return errors.New("Failed to call Frontend to create machine. " + res.Status)
+	}
+
 	return nil
 }
 
-// func (client *Client) GetUser(userId string, accessToken string, refreshToken string) *User {
-// 	url := client.url + "/get-user"
-// 	getUserRequest := GetUserRequest{
-// 		UserId: userId,
-// 	}
-// 	jsonReq, err := json.Marshal(getUserRequest)
-// 	checkOsExit(err)
+func (client *Client) GetUser(userId string) (*types.User, error) {
+	url := client.Url + "/get-user"
+	getUserRequest := types.GetUserRequest{
+		UserId: userId,
+	}
 
-// 	req, err := newRequestWithAuth("GET", url, bytes.NewBuffer(jsonReq))
-// 	checkOsExit(err)
+	body, res, err := http.Call(url, "GET", getUserRequest, client.CredentialsProvider)
+	if err != nil {
+		return nil, err
+	}
 
-// 	_, body, res := callHttp(req)
-// 	if res.StatusCode == 200 {
-// 		userId := body["id"].(string)
-// 		return &User{Id: userId}
-// 	} else {
-// 		fmt.Println("Error getting user details")
-// 		fmt.Println(res)
-// 		return nil
-// 	}
-	
-// }
+	if res.StatusCode == 200 {
+		userId := body["id"].(string)
+		return &types.User{Id: userId}, nil
+	} else {
+		fmt.Println("Error getting user details")
+		fmt.Println(res)
+		return nil, err
+	}
+}
 
-// func createUser(userId string) *User { // TODO change return type
-// 	url := frontendURL + "/create-user"
-// 	getUserRequest := CreateUserRequest{
-// 		UserId: userId,
-// 	}
-// 	jsonReq, err := json.Marshal(getUserRequest)
-// 	util.CheckOsExit(err)
+func (client *Client) CreateUser(userId string) (*types.User, error) { // TODO change return type
+	url := client.Url + "/create-user"
+	createUserRequest := types.CreateUserRequest{
+		UserId: userId,
+	}
 
-// 	req, err := newRequestWithAuth("POST", url, bytes.NewBuffer(jsonReq))
-// 	util.CheckOsExit(err)
+	body, res, err := http.Call(url, "POST", createUserRequest, client.CredentialsProvider)
+	if err != nil {
+		return nil, err
+	}
 
-// 	_, body, res := callHttp(req)
-// 	if res.StatusCode == 201 {
-// 		userId := body["id"].(string)
-// 		return &User{Id: userId}
-// 	} else {
-// 		fmt.Println("Error creating user")
-// 		fmt.Println(res)
-// 		return nil
-// 	}
-// }
+	if res.StatusCode == 200 {
+		userId := body["id"].(string)
+		return &types.User{Id: userId}, nil
+	} else {
+		fmt.Println("Error creating a new user")
+		fmt.Println(res)
+		return nil, err
+	}
+}
 
 // func createClientToken(userId string, name string) *ClientToken { // TODO change return type
 // 	url := frontendURL + "/create-client-token"
@@ -184,7 +184,7 @@ func (client *Client) CreateMachine(userId string, project string, task string, 
 // func (client *Client) Call(frontendReq interface{}, route string, method string) (map[string]interface{}, *http.Response) {
 // 	jsonReq, err := json.Marshal(frontendReq)
 // 	util.CheckOsExit(err)
-	
+
 // 	req, err := cli.NewRequestWithAuth("POST", url, bytes.NewBuffer(jsonReq))
 // 	util.CheckOsExit(err)
 
