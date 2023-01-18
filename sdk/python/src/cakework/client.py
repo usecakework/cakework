@@ -140,7 +140,7 @@ class Client:
                 "userId": self.user_id,
                 "app": self.project,
                 "task": sanitized_name,
-                "parameters": json.dumps(args)
+                "parameters": parameters
             }
 
             cpu = compute.get("cpu")
