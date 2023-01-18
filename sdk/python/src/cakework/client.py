@@ -131,10 +131,35 @@ class Client:
             raise exceptions.CakeworkError("Internal server exception") 
        
     def __getattr__(self, name):
-        def method(*args):
+        def method(*args, compute={}):            
             sanitized_name = name.lower()
-            sanitized_name = name.replace('_', '-')          
-            response = requests.post(f"{self.frontend_url}/client/submit-task", json={"userId": self.user_id, "app": self.project, "task": sanitized_name, "parameters": json.dumps(args)}, headers=self.headers)
+            sanitized_name = name.replace('_', '-')
+
+            parameters = json.dumps(args)
+            request = {
+                "userId": self.user_id,
+                "app": self.project,
+                "task": sanitized_name,
+                "parameters": json.dumps(args)
+            }
+
+            cpu = compute.get("cpu")
+            if cpu is not None:
+                if cpu < 1 or cpu > 8:
+                    raise exceptions.CakeworkError("Number of cpus must be between 1 and 8")
+                else:
+                    request["cpu"] = cpu
+                    
+            memory = compute.get("memory")
+            if memory is not None:
+                if memory < 256 or memory > 16384:
+                    raise exceptions.CakeworkError("Amount of memory must be between 256 and 16384 mb")
+                else:
+                    request["memory"] = memory
+        
+            print(request)
+  
+            response = requests.post(f"{self.frontend_url}/client/submit-task", json=request, headers=self.headers)
             response_json = response.json()
             request_id = response_json["requestId"] # this may be null?
             return request_id
