@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -31,6 +30,7 @@ import (
 	fly "github.com/usecakework/cakework/lib/fly/cli"
 	"github.com/usecakework/cakework/lib/frontendclient"
 	cwHttp "github.com/usecakework/cakework/lib/http"
+	"github.com/usecakework/cakework/lib/shell"
 )
 
 //go:embed Dockerfile
@@ -316,14 +316,14 @@ if __name__ == "__main__":
 					// TODO check python version
 					cmd := exec.Command("python3", "-m", "venv", "env")
 					cmd.Dir = appDirectory
-					_, err = shell(cmd) // don't do anything with out?
+					_, err = shell.RunCmd(cmd, "") // don't do anything with out?
 					if err != nil {
 						return fmt.Errorf("Error creating virtual env: %w", err)
 					}
 
 					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework")
 					cmd.Dir = appDirectory
-					_, err = shell(cmd) // don't do anything with out?
+					_, err = shell.RunCmd(cmd, "") // don't do anything with out?
 					if err != nil {
 						return fmt.Errorf("Error installing dependencies: %w", err)
 					}
@@ -664,38 +664,6 @@ if __name__ == "__main__":
 	f.Sync()
 
 	return nil
-}
-
-func shell(cmd *exec.Cmd) (string, error) {
-	log.Debug("executing command: " + strings.Join(cmd.Args, " ")) // TODO turn this off when not in debug mode
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	allOutput := fmt.Sprint(err) + ": " + stderr.String() + ": " + out.String()
-
-	if err != nil {
-		log.Debug("error executing command")
-		log.Debug("err: ")
-		log.Debug(fmt.Sprint(err)) // TODO delete this
-		log.Debug("stderr: (may be null): ")
-		log.Debug(stderr.String())
-		log.Debug("out: (may be null)")
-		log.Debug(out.String())
-		fmt.Println("out") // TODO remove these so that we obfuscate errors from the user
-		fmt.Println(out.String())
-		fmt.Println("err")
-		fmt.Println(err)
-		fmt.Println("stderr")
-		fmt.Println(stderr.String())
-		// since sometimes errors are printed to stdout instead of stderr, print out stdout as well
-		return allOutput, err
-	} else {
-		log.Debug("succeeded executing command")
-	}
-	log.Debug("Result: (out)" + out.String())
-	return out.String(), nil
 }
 
 // File copies a single file from src to dst
