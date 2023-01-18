@@ -23,6 +23,7 @@ import (
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/usecakework/cakework/lib/types"
+	"github.com/usecakework/cakework/lib/util"
 )
 
 const (
@@ -289,9 +290,9 @@ func handleGetTaskLogs(c *gin.Context) {
 		return
 	}
 
-	userId := sanitizeUserId(newGetTaskLogsRequest.UserId)
-	app := sanitizeAppName(newGetTaskLogsRequest.App)
-	task := sanitizeTaskName(newGetTaskLogsRequest.Task)
+	userId := util.SanitizeUserId(newGetTaskLogsRequest.UserId)
+	app := util.SanitizeAppName(newGetTaskLogsRequest.App)
+	task := util.SanitizeTaskName(newGetTaskLogsRequest.Task)
 	statusFilter := newGetTaskLogsRequest.StatusFilter
 
 	taskLogs, err := GetTaskLogs(db, userId, app, task, statusFilter)
@@ -319,8 +320,8 @@ func getStatus(c *gin.Context) {
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
-	userId := sanitizeUserId(newGetStatusRequest.UserId)
-	app := sanitizeAppName(newGetStatusRequest.App)
+	userId := util.SanitizeUserId(newGetStatusRequest.UserId)
+	app := util.SanitizeAppName(newGetStatusRequest.App)
 
 	taskRun, err := getTaskRun(userId, app, newGetStatusRequest.RequestId)
 	if err != nil {
@@ -699,9 +700,9 @@ func createMachine(c *gin.Context) {
 
 	// sanitize; convert app and task name to lower case, only hyphens
 	// TODO put this into a middleware
-	userId := sanitizeUserId(req.UserId)
-	project := sanitizeProjectName(req.Project)
-	task := sanitizeTaskName(req.Task)
+	userId := util.SanitizeUserId(req.UserId)
+	project := util.SanitizeProjectName(req.Project)
+	task := util.SanitizeTaskName(req.Task)
 	flyApp := userId + "-" + project + "-" + task
 
 	query := "INSERT INTO `FlyMachine` (`userId`, `project`, `task`, `flyApp`, `name`, `machineId`, `state`, `image`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"

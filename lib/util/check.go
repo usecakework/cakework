@@ -1,4 +1,4 @@
-package main
+package util
 
 // should be i main?
 

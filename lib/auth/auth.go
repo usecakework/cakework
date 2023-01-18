@@ -34,10 +34,23 @@ type CredentialsProvider interface {
 	GetCredentials() (*Credentials, error)
 }
 
+// TODO rename to BearerFileCredentialsProvider
 type BearerCredentialsProvider struct {
 	// stuff needed for bearer tokens
 	// initialize it with the logic to fetch tokens from the correct authority
 	ConfigFile string
+}
+
+type BearerStringCredentialsProvider struct {
+	Token string
+}
+
+// used for fly. Doesn't have a refrsh token
+func (p BearerStringCredentialsProvider) GetCredentials() (*Credentials, error) {
+	return &Credentials {
+		Type: "BEARER",
+		AccessToken: p.Token,
+	}, nil
 }
 
 func (p BearerCredentialsProvider) GetCredentials() (*Credentials, error) {
