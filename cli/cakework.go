@@ -161,18 +161,19 @@ func main() {
 					return nil
 				},
 			},
-			// 			{
-			// 				Name:  "logout",
-			// 				Usage: "Log out of the Cakework CLI",
-			// 				Action: func(cCtx *cli.Context) error {
-			// 					err := os.Remove(configFile)
-			// 					if err != nil {
-			// 						cli.Exit("Failed to log out and delete Cakework config file", 1)
-			// 					}
-			// 					fmt.Println("You have been logged out")
-			// 					return nil
-			// 				},
-			// 			},
+			{
+				Name:  "logout",
+				Usage: "Log out of the Cakework CLI",
+				Action: func(cCtx *cli.Context) error {
+					err := os.Remove(configFile)
+					if err != nil {
+						return err
+					}
+
+					fmt.Println("You have been logged out")
+					return nil
+				},
+			},
 			// 			{
 			// 				Name:      "create-client-token", // TODO change this to signup. // TODO also create a logout
 			// 				Usage:     "Create an access token for your clients",

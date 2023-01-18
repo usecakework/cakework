@@ -2,7 +2,6 @@
 
 # Set up your own stack
 
-
 5. Start the log shipper (Requires Logtail account). From the ```./log-shipper`` dir:
     1. Modify the ```fly.toml``` file with your Fly.io org name
     2. [Set the appropriate secrets for Fly and Logtail](https://github.com/superfly/fly-log-shipper)
@@ -17,13 +16,9 @@ nats-server -js
 ```
 3. Run the frontend. From the ```/frontend``` dir:
 ```
-go build -o frontend
-./frontend -local
-```
-4. Run the poller. From the ```./poller``` dir:
-```
-go build -o poller
-./poller -local
-```
 
-You should be able to hit the frontend and start tasks, etc.
+4. Run the poller.
+Wireguard into your Fly account.
+
+
+You should now be able to hit the frontend and start tasks, etc.
