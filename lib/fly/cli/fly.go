@@ -1,4 +1,4 @@
-package flyCli
+package cli
 
 import (
 	"errors"
