@@ -10,12 +10,13 @@ import (
 
 // Get logs for a request
 // just returns the whole json blob from logtail as a string for now
-func getRequestLogs(userId string, appName string, taskName string) (*types.RequestLogs, error) {
+func getRequestLogs(userId string, appName string, taskName string, requestId string) (*types.RequestLogs, error) {
 
 	// construct search params
 	flyAppName := fly.GetFlyAppName(userId, appName, taskName)
+	searchString := requestId + " " + flyAppName
 
-	logs, err := getLogs(flyAppName)
+	logs, err := getLogs(searchString)
 
 	if err != nil {
 		return nil, err

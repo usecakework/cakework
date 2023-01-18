@@ -265,19 +265,17 @@ func handleGetRequestLogs(c *gin.Context) {
 		return
 	}
 
+	requestId := requestDetails.RequestId
 	userId := requestDetails.UserId
 	appName := requestDetails.App
 	taskName := requestDetails.Task
 
-	logs, err := getRequestLogs(userId, appName, taskName)
+	logs, err := getRequestLogs(userId, appName, taskName, requestId)
 	if err != nil {
 		fmt.Println(err)
 		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
 		return
 	}
-
-	fmt.Println("hi")
-	fmt.Println(logs)
 
 	c.IndentedJSON(http.StatusOK, logs)
 	return
