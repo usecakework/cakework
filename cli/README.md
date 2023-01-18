@@ -55,3 +55,5 @@ TODO:
 
 To test building the CLI release locally:
 `goreleaser build --rm-dist --snapshot`
+
+If you want VSCode to be able to detect multiple modules, follow steps here: https://stackoverflow.com/questions/65748509/vscode-shows-an-error-when-having-multiple-go-projects-in-a-directory for updating the gopls setting
