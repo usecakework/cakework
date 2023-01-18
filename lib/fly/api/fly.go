@@ -26,8 +26,8 @@ Ex: fly scale vm dedicated-cpu-1x --memory 4096 (for apps not machine)
 **/
 
 type Fly struct {
-	Org string
-	Endpoint string
+	Org                 string
+	Endpoint            string
 	CredentialsProvider auth.BearerStringCredentialsProvider
 }
 
@@ -49,8 +49,8 @@ type Guest struct {
 
 func New(org string, endpoint string, credentialsProvider auth.BearerStringCredentialsProvider) *Fly {
 	fly := &Fly{
-		Org: org,
-		Endpoint: endpoint,
+		Org:                 org,
+		Endpoint:            endpoint,
 		CredentialsProvider: credentialsProvider,
 	}
 
@@ -72,7 +72,7 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 			},
 		},
 	}
-	
+
 	data, res, err := http.Call(url, "POST", req, fly.CredentialsProvider)
 	if err != nil {
 		return err
