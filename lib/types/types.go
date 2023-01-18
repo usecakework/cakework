@@ -15,7 +15,7 @@ type Request struct {
 }
 
 type RequestLogLine struct {
-	Timestamp string `json:"dt"`
+	Timestamp string `json:"_dt"`
 	LogLevel  string `json:"log.level"`
 	Message   string `json:"message"`
 }

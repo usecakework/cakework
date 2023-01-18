@@ -614,7 +614,7 @@ if __name__ == "__main__":
 							}
 
 							if cCtx.NArg() != 1 {
-								return cli.Exit("Please include one parameter, the Request ID", 1)
+								return errors.New("Please include one parameter, the Request ID")
 							}
 							requestId := cCtx.Args().Get(0)
 
@@ -638,48 +638,56 @@ if __name__ == "__main__":
 							return nil
 						},
 					},
-					// {
-					// 	Name:      "logs",
-					// 	Usage:     "Get logs for a Request",
-					// 	UsageText: "cakework request logs [REQUEST_ID]",
-					// 	Action: func(cCtx *cli.Context) error {
-					// 		if !isLoggedIn() {
-					// 			fmt.Println("Please signup (cakework signup) or log in (cakework login).")
-					// 			return nil
-					// 		}
+					{
+						Name:      "logs",
+						Usage:     "Get logs for a Request",
+						UsageText: "cakework request logs [REQUEST_ID]",
+						Action: func(cCtx *cli.Context) error {
+							if !isLoggedIn(*config) {
+								fmt.Println("Please signup (cakework signup) or log in (cakework login).")
+								return nil
+							}
 
-					// 		if cCtx.NArg() != 1 {
-					// 			return cli.Exit("Please include one parameter, the Request ID", 1)
-					// 		}
+							if cCtx.NArg() != 1 {
+								return errors.New("Please include one parameter, the Request ID")
+							}
+							requestId := cCtx.Args().Get(0)
 
-					// 		userId := getUserId()
-					// 		requestId := cCtx.Args().Get(0)
+							userId, err := getUserId(configFile)
+							if err != nil {
+								return fmt.Errorf("Error getting user from config. %w", err)
+							}
 
-					// 		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-					// 		s.Start()
-					// 		requestLogs := getRequestLogs(userId, requestId)
+							s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+							s.Start()
 
-					// 		if len(requestLogs.LogLines) == 0 {
-					// 			fmt.Println("Request not found. Please check your Request Id.")
-					// 			return nil
-					// 		}
+							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+							requestLogs, err := frontendClient.GetRequestLogs(userId, requestId)
+							if err != nil {
+								return fmt.Errorf("Error getting request logs %w", err)
+							}
 
-					// 		t := table.NewWriter()
-					// 		t.SetOutputMirror(os.Stdout)
-					// 		for _, line := range requestLogs.LogLines {
-					// 			t.AppendRow([]interface{}{
-					// 				line.Timestamp,
-					// 				line.LogLevel,
-					// 				line.Message,
-					// 			})
-					// 		}
-					// 		t.Render()
+							if len(requestLogs.LogLines) == 0 {
+								fmt.Println("No logs found.")
+								return nil
+							}
 
-					// 		s.Stop()
+							t := table.NewWriter()
+							t.SetOutputMirror(os.Stdout)
+							for _, line := range requestLogs.LogLines {
+								t.AppendRow([]interface{}{
+									line.Timestamp,
+									line.LogLevel,
+									line.Message,
+								})
+							}
+							t.Render()
 
-					// 		return nil
-					// 	},
-					// },
+							s.Stop()
+
+							return nil
+						},
+					},
 				},
 			},
 		},
