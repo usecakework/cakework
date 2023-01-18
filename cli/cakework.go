@@ -22,6 +22,7 @@ import (
 
 	"github.com/briandowns/spinner"
 	"github.com/google/uuid"
+	"github.com/jedib0t/go-pretty/v6/table"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	urfaveCli "github.com/urfave/cli/v2"
@@ -46,6 +47,7 @@ var gitIgnore embed.FS // for python only! TODO fix
 var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
+
 var FRONTEND_URL = "https://cakework-frontend.fly.dev"
 
 // var FRONTEND_URL = "http://localhost:8080" // local testing
@@ -530,89 +532,72 @@ if __name__ == "__main__":
 
 					fmt.Println("Successfully deployed your tasks! 🍰")
 					return nil
-
 				},
-				// }, {
-				// 	Name:  "task",
-				// 	Usage: "Interact with your Tasks (e.g. get logs)",
-				// 	Subcommands: []*cli.Command{
-				// 		{
-				// 			Name:      "logs",
-				// 			Usage:     "Get request logs for a task",
-				// 			UsageText: "cakework task status [flags] [PROJECT_NAME] [TASK_NAME]",
-				// 			// Flags: []cli.Flag{
-				// 			// 	&cli.StringFlag{
-				// 			// 		Name:        "status",
-				// 			// 		Value:       "",
-				// 			// 		Usage:       "Status to filter by. PENDING, IN_PROGRESS, SUCCEEDED, or FAILED",
-				// 			// 		Destination: &status,
-				// 			// 	},
-				// 			// },
-				// 			Action: func(cCtx *cli.Context) error {
-				// 				if cCtx.NArg() != 2 {
-				// 					return cli.Exit("Please specify 2 parameters - Project name and Task Name.", 1)
-				// 				}
+			},
+			{
+				Name:  "task",
+				Usage: "Interact with your Tasks (e.g. get logs)",
+				Subcommands: []*cli.Command{
+					{
+						Name:      "logs",
+						Usage:     "Get request logs for a task",
+						UsageText: "cakework task logs [flags] [PROJECT_NAME] [TASK_NAME]",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "status",
+								Usage: "Status to filter by. PENDING, IN_PROGRESS, SUCCEEDED, or FAILED",
+							},
+						},
+						Action: func(cCtx *cli.Context) error {
+							if !isLoggedIn(*config) {
+								fmt.Println("Please signup (cakework signup) or log in (cakework login).")
+								return nil
+							}
 
-				// 				appName := cCtx.Args().Get(0)
-				// 				taskName := cCtx.Args().Get(1)
+							if cCtx.NArg() < 2 {
+								return errors.New("Please specify Project name and Task name.")
+							}
 
-				// 				var statuses []string
-				// 				// status := cCtx.String("status")
-				// 				// if status != "" {
-				// 				// 	statuses = append(statuses, status)
-				// 				// }
+							appName := cCtx.Args().Get(0)
+							taskName := cCtx.Args().Get(1)
 
-				// 				userId := getUserId()
-				// 				taskLogs := frontend.GetTaskLogs(userId, appName, taskName, statuses)
+							statusFilter := cCtx.String("status")
 
-				// 				if len(taskLogs.Requests) == 0 {
-				// 					fmt.Println("Task " + appName + "/" + taskName + " does not exist, or you haven't run the task yet.")
-				// 					return nil
-				// 				}
+							userId, err := getUserId(configFile)
+							if err != nil {
+								return fmt.Errorf("Could not get user for getting logs: %w", err)
+							}
 
-				// 				t := table.NewWriter()
-				// 				t.SetOutputMirror(os.Stdout)
-				// 				t.AppendHeader(table.Row{"Request Id", "Status", "Parameters", "Result"})
-				// 				for _, request := range taskLogs.Requests {
-				// 					t.AppendRow([]interface{}{
-				// 						request.RequestId,
-				// 						request.Status,
-				// 						request.Parameters,
-				// 						request.Result,
-				// 					})
-				// 				}
-				// 				t.Render()
+							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+							taskLogs, err := frontendClient.GetTaskLogs(userId, appName, taskName, statusFilter)
+							if err != nil {
+								return fmt.Errorf("Could not get task logs: %w", err)
+							}
 
-				// 				return nil
-				// 			},
-				// 		},
-				// 	},
-				// }, {
-				// 	Name:  "request",
-				// 	Usage: "Interact with your Requests (e.g. get logs)",
-				// 	Subcommands: []*cli.Command{
-				// 		{
-				// 			Name:      "status",
-				// 			Usage:     "Get processing status for your single request",
-				// 			UsageText: "cakework request status [REQUEST_ID]",
-				// 			Action: func(cCtx *cli.Context) error {
-				// 				if cCtx.NArg() != 1 {
-				// 					return cli.Exit("Please include one parameter, the Request ID", 1)
-				// 				}
+							if len(taskLogs.Requests) == 0 {
+								fmt.Println("No requests found. Check your Project name and Task name!")
+								return nil
+							}
 
-				// 				userId := getUserId()
-				// 				requestId := cCtx.Args().Get(0)
+							t := table.NewWriter()
+							t.SetOutputMirror(os.Stdout)
+							t.AppendHeader(table.Row{"Request Id", "Status", "Started", "Updated", "Parameters", "Result"})
+							for _, request := range taskLogs.Requests {
+								t.AppendRow([]interface{}{
+									request.RequestId,
+									request.Status,
+									time.Unix(request.CreatedAt, 0).Format("02 Jan 06 15:04 MST"),
+									time.Unix(request.UpdatedAt, 0).Format("02 Jan 06 15:04 MST"),
+									request.Parameters,
+									request.Result,
+								})
+							}
+							t.Render()
 
-				// 				requestStatus := getRequestStatus(userId, requestId)
-
-				// 				if requestStatus != "" {
-				// 					fmt.Println(requestStatus)
-				// 				}
-
-				// 				return nil
-				// 			},
-				// },
-				// },
+							return nil
+						},
+					},
+				},
 			},
 		},
 	}

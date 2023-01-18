@@ -2,7 +2,9 @@ package frontendclient
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/usecakework/cakework/lib/auth"
 	fly "github.com/usecakework/cakework/lib/fly/cli"
 	"github.com/usecakework/cakework/lib/http"
@@ -137,40 +139,42 @@ func (client *Client) CreateClientToken(userId string, name string) (*types.Clie
 // 	}
 // }
 
-// func getTaskLogs(userId string, appName string, taskName string, statuses []string) TaskLogs {
-// 	url := frontendURL + "/task/logs"
-// 	getTaskLogsRequest := GetTaskLogsRequest{
-// 		UserId: userId,
-// 		App:    appName,
-// 		Task:   taskName,
-// 	}
-// 	jsonReq, err := json.Marshal(getTaskLogsRequest)
-// 	checkOsExit(err)
+func (client *Client) GetTaskLogs(userId string, appName string, taskName string, statusFilter string) (types.TaskLogs, error) {
+	url := client.Url + "/task/logs"
+	getTaskLogsRequest := types.GetTaskLogsRequest{
+		UserId:       userId,
+		App:          appName,
+		Task:         taskName,
+		StatusFilter: statusFilter,
+	}
 
-// 	req, err := newRequestWithAuth("GET", url, bytes.NewBuffer(jsonReq))
-// 	checkOsExit(err)
+	body, res, err := http.Call(url, "GET", getTaskLogsRequest, client.CredentialsProvider)
+	if err != nil {
+		return types.TaskLogs{
+			Requests: []types.Request{},
+		}, err
+	}
 
-// 	res, err := http.DefaultClient.Do(req)
-// 	checkOsExit(err)
+	if res.StatusCode == 200 {
+		var taskLogs types.TaskLogs
+		if err != nil {
+			return types.TaskLogs{
+				Requests: []types.Request{},
+			}, err
+		}
 
-// 	if res.StatusCode == 200 {
-// 		var taskLogs TaskLogs
-// 		bodybutbetter, err := io.ReadAll(res.Body)
-// 		if err != nil {
-// 			checkOsExit(errors.New("Error running task " + appName + "/" + taskName))
-// 		}
-
-// 		json.Unmarshal(bodybutbetter, &taskLogs)
-// 		return taskLogs
-// 	} else {
-// 		// get res to string properly
-// 		fmt.Println(res)
-// 		checkOsExit(errors.New("Error running task " + appName + "/" + taskName))
-// 		return TaskLogs{
-// 			Requests: []Request{},
-// 		}
-// 	}
-// }
+		// TODO DON'T DOUBLE DESERIALIZE
+		mapstructure.Decode(body, &taskLogs)
+		return taskLogs, nil
+	} else {
+		// get res to string properly
+		fmt.Println(res)
+		err = errors.New("Error from server " + res.Status)
+		return types.TaskLogs{
+			Requests: []types.Request{},
+		}, err
+	}
+}
 
 // call a frontend API, using the input request
 // func (client *Client) Call(frontendReq interface{}, route string, method string) (map[string]interface{}, *http.Response) {

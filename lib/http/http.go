@@ -86,7 +86,6 @@ func CallHttp(req *http.Request) (bodyMap map[string]interface{}, res *http.Resp
 	if err != nil {
 		return nil, nil, err
 	}
-
 	defer res.Body.Close()
 
 	resDump, err := httputil.DumpResponse(res, true)

@@ -673,7 +673,7 @@ func getUser(c *gin.Context) {
 func getUserFromAPIKey(apiKey string) (*types.User, error) {
 	// fetch the client token by the token value
 	// return the user
-	newRequest := types.GetUserByClientTokenRequest {
+	newRequest := types.GetUserByClientTokenRequest{
 		Token: apiKey,
 	}
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?

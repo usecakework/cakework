@@ -7,11 +7,7 @@ import (
 	"github.com/usecakework/cakework/lib/types"
 )
 
-type TaskLogs struct {
-	Requests []types.Request `json:"requests"`
-}
-
-func GetTaskLogs(db *sql.DB, userId string, appName string, taskName string, statusFilter string) (TaskLogs, error) {
+func GetTaskLogs(db *sql.DB, userId string, appName string, taskName string, statusFilter string) (types.TaskLogs, error) {
 	var requests []types.Request
 
 	var rows *sql.Rows
@@ -24,7 +20,7 @@ func GetTaskLogs(db *sql.DB, userId string, appName string, taskName string, sta
 	}
 
 	if err != nil {
-		return TaskLogs{
+		return types.TaskLogs{
 			Requests: requests,
 		}, err
 	}
@@ -37,24 +33,23 @@ func GetTaskLogs(db *sql.DB, userId string, appName string, taskName string, sta
 		var updatedAt time.Time
 		var request types.Request
 		if err := rows.Scan(&request.RequestId, &request.Status, &request.Parameters, &result, &createdAt, &updatedAt); err != nil {
-			return TaskLogs{Requests: requests}, err
+			return types.TaskLogs{Requests: requests}, err
 		}
 		if result.Valid {
 			request.Result = result.String
 		}
 		request.CreatedAt = createdAt.Unix()
 		request.UpdatedAt = updatedAt.Unix()
-
 		requests = append(requests, request)
 	}
 
 	if err = rows.Err(); err != nil {
-		return TaskLogs{
+		return types.TaskLogs{
 			Requests: requests,
 		}, err
 	}
 
-	return TaskLogs{
+	return types.TaskLogs{
 		Requests: requests,
 	}, nil
 }

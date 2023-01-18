@@ -3,7 +3,7 @@ package types
 // TODO: organize so that we put structs in their relevant files
 
 type Request struct {
-	RequestId  string `json:"request"`
+	RequestId  string `json:"requestId"`
 	UserId     string `json:"userId"`
 	App        string `json:"app"`
 	Task       string `json:"task"`
@@ -123,4 +123,8 @@ type GetUserByClientTokenRequest struct {
 type GetRequestLogsRequest struct {
 	UserId    string `json:"userId"`
 	RequestId string `json:"requestId"`
+}
+
+type TaskLogs struct {
+	Requests []Request `json:"requests"`
 }
