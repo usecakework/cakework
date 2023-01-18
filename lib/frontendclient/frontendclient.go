@@ -138,7 +138,7 @@ func (client *Client) GetRequestStatus(userId string, requestId string) (string,
 	}
 }
 
-func (client *Client) GetRequestLogs(userId string, requestId string) (types.RequestLogs, error) {
+func (client *Client) GetRequestLogs(userId string, requestId string) (*types.RequestLogs, error) {
 	url := client.Url + "/request/logs"
 	getRequestLogsRequest := types.GetRequestLogsRequest{
 		UserId:    userId,
@@ -147,9 +147,7 @@ func (client *Client) GetRequestLogs(userId string, requestId string) (types.Req
 
 	res, err := http.CallV2(url, "GET", getRequestLogsRequest, client.CredentialsProvider)
 	if err != nil {
-		return types.RequestLogs{
-			LogLines: []types.RequestLogLine{},
-		}, err
+		return nil, err
 	}
 	defer res.Body.Close()
 
@@ -158,19 +156,17 @@ func (client *Client) GetRequestLogs(userId string, requestId string) (types.Req
 
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
-			return types.RequestLogs{
-				LogLines: []types.RequestLogLine{},
-			}, nil
+			return nil, err
 		}
 
 		json.Unmarshal(body, &requestLogs)
-		return requestLogs, nil
+		return &requestLogs, nil
+	} else if res.StatusCode == 404 {
+		return nil, nil
 	} else {
 		// get res to string properly
 		fmt.Println(res)
-		return types.RequestLogs{
-			LogLines: []types.RequestLogLine{},
-		}, errors.New("Error getting request status from server. " + res.Status)
+		return nil, errors.New("Server error: " + res.Status)
 	}
 }
 
@@ -205,7 +201,7 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 	} else {
 		// get res to string properly
 		fmt.Println(res)
-		err = errors.New("Error from server " + res.Status)
+		err = errors.New("Server Error " + res.Status)
 		return types.TaskLogs{
 			Requests: []types.Request{},
 		}, err

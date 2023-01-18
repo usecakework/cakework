@@ -11,13 +11,9 @@ import (
 	"github.com/MicahParks/keyfunc"
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/usecakework/cakework/lib/config"
 	cwConfig "github.com/usecakework/cakework/lib/config"
-)
-
-var (
-	tokenURL string = "https://dev-qanxtedlpguucmz5.us.auth0.com/oauth/token"
-	jwksURL  string = "https://dev-qanxtedlpguucmz5.us.auth0.com/.well-known/jwks.json"
 )
 
 type Credentials struct {
@@ -46,8 +42,8 @@ type BearerStringCredentialsProvider struct {
 
 // used for fly. Doesn't have a refrsh token
 func (p BearerStringCredentialsProvider) GetCredentials() (*Credentials, error) {
-	return &Credentials {
-		Type: "BEARER",
+	return &Credentials{
+		Type:        "BEARER",
 		AccessToken: p.Token,
 	}, nil
 }
@@ -64,7 +60,12 @@ func (p BearerCredentialsProvider) GetCredentials() (*Credentials, error) {
 		return nil, errors.New("Tokens are null")
 	}
 
-	if IsTokenExpired(config.AccessToken) {
+	isTokenExpired, err := IsTokenExpired(config.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	if isTokenExpired {
 		config.AccessToken, config.RefreshToken, err = RefreshTokens(*config)
 		if err != nil {
 			fmt.Println("Tokens expired. Failed to refresh tokens")
@@ -86,9 +87,13 @@ func (p BearerCredentialsProvider) GetCredentials() (*Credentials, error) {
 }
 
 func IsTokenValid(token string) (bool, error) {
-	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{}) // See recommended options in the examples directory.
+	AUTH0_JWKS_URL := viper.GetString("AUTH0_JWKS_URL")
+	jwks, err := keyfunc.Get(AUTH0_JWKS_URL, keyfunc.Options{}) // See recommended options in the examples directory.
 
 	parsedToken, err := jwt.Parse(token, jwks.Keyfunc)
+	if err != nil {
+		return false, err
+	}
 
 	if parsedToken.Valid {
 		// log.Debug("Token is valid")
@@ -106,21 +111,28 @@ func IsTokenValid(token string) (bool, error) {
 	}
 }
 
-func IsTokenExpired(token string) bool {
+func IsTokenExpired(token string) (bool, error) {
 	_, err := IsTokenValid(token)
+
 	if errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) {
-		return true
-	} else {
-		return false
+		return true, nil
 	}
+
+	if err != nil {
+		return true, err
+	}
+
+	return false, nil
 }
 
 // this may return status code 404 if user hasn't yet entered in the device code
 func GetTokens(deviceCode string) (string, string, error) {
+	AUTH0_TOKEN_URL := viper.GetString("AUTH0_TOKEN_URL")
+	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
 	// if using the creds to call an api, need to use the API's Identifier as the audience
-	payload := strings.NewReader("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=" + deviceCode + "&client_id=rqbQ3XWpM2C0vRCzKwC6CXXnKe9aCSmb")
+	payload := strings.NewReader("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=" + deviceCode + "&client_id=" + AUTH0_CLIENT_ID)
 
-	req, _ := http.NewRequest("POST", tokenURL, payload)
+	req, _ := http.NewRequest("POST", AUTH0_TOKEN_URL, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
 	data, res, err := CallHttp(req)
@@ -140,10 +152,12 @@ func GetTokens(deviceCode string) (string, string, error) {
 
 // TODO make this so that we don't update the config file
 func RefreshTokens(config config.Config) (string, string, error) {
+	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
+	AUTH0_TOKEN_URL := viper.GetString("AUTH0_TOKEN_URL")
 	// refresh the token
-	payload := strings.NewReader("grant_type=refresh_token&client_id=rqbQ3XWpM2C0vRCzKwC6CXXnKe9aCSmb&refresh_token=" + config.RefreshToken)
+	payload := strings.NewReader("grant_type=refresh_token&client_id=" + AUTH0_CLIENT_ID + "&refresh_token=" + config.RefreshToken)
 
-	req, _ := http.NewRequest("POST", tokenURL, payload)
+	req, _ := http.NewRequest("POST", AUTH0_TOKEN_URL, payload)
 
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 

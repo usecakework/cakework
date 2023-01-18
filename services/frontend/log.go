@@ -6,13 +6,11 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/spf13/viper"
 	"github.com/usecakework/cakework/lib/types"
 )
 
 const LOGTAIL_QUERY_URL = "https://logtail.com//api/v1/query"
-
-// TODO REMOVE ME
-const LOGTAIL_TOKEN = "ou23pqL941JaKELaGiVbCARf"
 
 const QUERY_QUERY_PARAM = "query"
 
@@ -20,13 +18,14 @@ const QUERY_QUERY_PARAM = "query"
 // figure out the interface later
 // figure out pagination later
 func getLogs(simpleQuery string) (*types.RequestLogs, error) {
+	LOGTAIL_TOKEN := viper.GetString("LOGTAIL_TOKEN")
 	req, err := http.NewRequest("GET", LOGTAIL_QUERY_URL, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	query := req.URL.Query()
-	query.Add(QUERY_QUERY_PARAM, "973879c4")
+	query.Add(QUERY_QUERY_PARAM, simpleQuery)
 	req.URL.RawQuery = query.Encode()
 	req.Header.Add("Authorization", "Bearer "+LOGTAIL_TOKEN)
 

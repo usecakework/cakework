@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jedib0t/go-pretty/v6/table"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	urfaveCli "github.com/urfave/cli/v2"
 	"github.com/usecakework/cakework/lib/auth"
@@ -48,10 +49,6 @@ var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
 
-var FRONTEND_URL = "https://cakework-frontend.fly.dev"
-
-// var FRONTEND_URL = "http://localhost:8080" // local testing
-
 func main() {
 	var appName string
 	var language string
@@ -61,8 +58,11 @@ func main() {
 	// buildDirectory := filepath.Join(workingDirectory, "build") // TODO figure out how to obfuscate all build files
 	buildDirectory := workingDirectory
 	dirname, _ := os.UserHomeDir()
-	fly := fly.New(dirname+"/.cakework/.fly/bin/fly", "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo", "sahale") //TODO extract secrets and rotate
 	cakeworkDirectory := dirname + "/.cakework"
+
+	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
+	FLY_ORG := viper.GetString("FLY_ORG")
+	fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG) //TODO extract secrets and rotate
 
 	log.Debug("appName: " + appName)
 	log.Debug("language: " + language)
@@ -70,7 +70,6 @@ func main() {
 	log.Debug("buildDirectory: " + buildDirectory)
 
 	configFile = filepath.Join(cakeworkDirectory, "config.json")
-
 	config, err := cwConfig.LoadConfig(configFile)
 	if err != nil {
 		fmt.Println("Could not load config file.")
@@ -82,6 +81,11 @@ func main() {
 	cwConfig.UpdateConfig(*config, configFile)
 
 	credsProvider = auth.BearerCredentialsProvider{ConfigFile: configFile}
+
+	viper.SetConfigFile(".env")
+	viper.ReadInConfig()
+
+	FRONTEND_URL := viper.GetString("FRONTEND_URL")
 
 	app := &urfaveCli.App{
 		Name:     "cakework",
@@ -663,12 +667,18 @@ if __name__ == "__main__":
 
 							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
 							requestLogs, err := frontendClient.GetRequestLogs(userId, requestId)
+							s.Stop()
 							if err != nil {
 								return fmt.Errorf("Error getting request logs %w", err)
 							}
 
+							if requestLogs == nil {
+								fmt.Println("Request not found. Please check your Request Id.")
+								return nil
+							}
+
 							if len(requestLogs.LogLines) == 0 {
-								fmt.Println("No logs found.")
+								fmt.Println("No logs found for this request.")
 								return nil
 							}
 
@@ -682,8 +692,6 @@ if __name__ == "__main__":
 								})
 							}
 							t.Render()
-
-							s.Stop()
 
 							return nil
 						},
@@ -826,11 +834,14 @@ func signUpOrLogin() error {
 
 	// request device code
 	// TODO: instead of logging into the cli, we should be logging into/getting credentials for the api?
-	url := "https://dev-qanxtedlpguucmz5.us.auth0.com/oauth/device/code"
+	AUTH0_DEVICE_CODE_URL := viper.GetString("AUTH0_DEVICE_CODE_URL")
 
 	// if using the creds to call an api, need to use the API's Identifier as the audience
-	payload := strings.NewReader("client_id=rqbQ3XWpM2C0vRCzKwC6CXXnKe9aCSmb&scope=openid offline_access add:task get:user create:user create:client_token get:status get:task_status create:machine %7D&audience=https%3A%2F%2Fcakework-frontend.fly.dev")
-	req, _ := http.NewRequest("POST", url, payload)
+	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
+	FRONTEND_URL_AUTH0 := viper.GetString("FRONTEND_URL_AUTH0")
+
+	payload := strings.NewReader("client_id=" + AUTH0_CLIENT_ID + "&scope=openid offline_access add:task get:user create:user create:client_token get:status get:task_status create:machine %7D&audience=" + FRONTEND_URL_AUTH0)
+	req, _ := http.NewRequest("POST", AUTH0_DEVICE_CODE_URL, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
 	data, res, err := cwHttp.CallHttp(req)
@@ -861,11 +872,12 @@ func signUpOrLogin() error {
 	// poll for request token
 	// Q: make it so that we only try for up to X minutes
 	for {
-		url = "https://dev-qanxtedlpguucmz5.us.auth0.com/oauth/token"
+		AUTH0_TOKEN_URL := viper.GetString("AUTH0_TOKEN_URL")
+		AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
 
-		payload = strings.NewReader("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=" + deviceCode + "&client_id=rqbQ3XWpM2C0vRCzKwC6CXXnKe9aCSmb")
+		payload = strings.NewReader("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=" + deviceCode + "&client_id=" + AUTH0_CLIENT_ID)
 
-		req, _ = http.NewRequest("POST", url, payload)
+		req, _ = http.NewRequest("POST", AUTH0_TOKEN_URL, payload)
 
 		log.Debug("payload to /token endpoint:")
 		req.Header.Add("content-type", "application/x-www-form-urlencoded")
@@ -896,9 +908,9 @@ func signUpOrLogin() error {
 	// call the /userInfo API to get the user information
 
 	// technically don't need to make a call to this; can parse the jwt token to get the sub field.
-	url = "https://dev-qanxtedlpguucmz5.us.auth0.com/userinfo"
+	AUTH0_USERINFO_URL := viper.GetString("AUTH0_USERINFO_URL")
 
-	req, _ = http.NewRequest("GET", url, nil)
+	req, _ = http.NewRequest("GET", AUTH0_USERINFO_URL, nil)
 
 	data, res, err = cwHttp.CallHttpAuthed(req, credsProvider)
 	if err != nil {
