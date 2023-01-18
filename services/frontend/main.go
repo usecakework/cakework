@@ -22,6 +22,7 @@ import (
 	adapter "github.com/gwatts/gin-adapter"
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/usecakework/cakework/lib/types"
 	"github.com/usecakework/cakework/lib/util"
 )
@@ -84,6 +85,9 @@ var customClaims = func() validator.CustomClaims {
 }
 
 func main() {
+	viper.SetConfigFile(".env")
+	viper.ReadInConfig()
+
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	flag.Parse()
 
@@ -94,8 +98,9 @@ func main() {
 		nc, _ = nats.Connect(nats.DefaultURL)
 		fmt.Println("Local mode; connected to nats cluster: " + nats.DefaultURL)
 	} else {
-		nc, _ = nats.Connect("cakework-nats-cluster.internal")
-		fmt.Println("Non-local mode; connected to nats cluster: cakework-nats-cluster.internal")
+		NATS_CLUSTER := viper.GetString("NATS_CLUSTER")
+		nc, _ = nats.Connect(NATS_CLUSTER)
+		fmt.Println("Non-local mode; connected to nats cluster: " + NATS_CLUSTER)
 	}
 
 	// Creates JetStreamContext
@@ -107,9 +112,9 @@ func main() {
 	err = createStream(js)
 	checkErr(err)
 
-	dsn := "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true&parseTime=true"
+	DB_CONN_STRING := viper.GetString("DB_CONN_STRING")
 	// Open the connection
-	db, err = sql.Open("mysql", dsn)
+	db, err = sql.Open("mysql", DB_CONN_STRING)
 	if err != nil {
 		log.Fatalf("impossible to create the connection: %s", err)
 	}
@@ -127,10 +132,12 @@ func main() {
 	router.Use(guidMiddleware())
 
 	// The issuer of our token.
-	issuerURL, _ := url.Parse("https://dev-qanxtedlpguucmz5.us.auth0.com/")
+	AUTH0_URL := viper.GetString("AUTH0_URL")
+	issuerURL, _ := url.Parse(AUTH0_URL)
 
 	// The audience of our token.
-	audience := "https://cakework-frontend.fly.dev"
+	FRONTEND_URL := viper.GetString("FRONTEND_URL")
+	audience := FRONTEND_URL
 
 	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
 
@@ -222,23 +229,6 @@ func submitTask(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusCreated, newTaskRun)
 	}
-	// store this into the database
-
-	// query := "INSERT INTO `Request2` (`id`, `status`, `parameters`) VALUES (?, ?, ?)"
-	// insertResult, err := db.ExecContext(context.Background(), query, newTaskRequest.ID, newTaskRequest.Status, newTaskRequest.Parameters)
-	// if err != nil {
-	//     log.Fatalf("impossible to insert : %s", err)
-	// }
-	// id, err := insertResult.LastInsertId()
-	// if err != nil {
-	//     log.Fatalf("impossible to retrieve last inserted id: %s", err)
-	// }
-	// log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
-
-	// TODO enqueue the task into NATS
-
-	// ok that for post that we return something different?
-
 }
 
 func handleGetRequestLogs(c *gin.Context) {

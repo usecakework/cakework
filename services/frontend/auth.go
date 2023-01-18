@@ -14,11 +14,11 @@ import (
 func abortWithStatusJSON(c *gin.Context, code int, message interface{}) {
 	c.AbortWithStatusJSON(code, gin.H{"error": message})
 }
-  
+
 func apiKeyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		apiKey := c.Request.Header.Get("X-Api-Key");
-		
+		apiKey := c.Request.Header.Get("X-Api-Key")
+
 		if apiKey == "" {
 			abortWithStatusJSON(c, 401, "API token required")
 			return
@@ -53,7 +53,7 @@ func jwtTokenMiddleware(scope string) gin.HandlerFunc {
 			)
 			return
 		}
-	
+
 		customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
 		if !ok {
 			c.AbortWithStatusJSON(
@@ -62,7 +62,7 @@ func jwtTokenMiddleware(scope string) gin.HandlerFunc {
 			)
 			return
 		}
-	
+
 		if len(customClaims.Scope) == 0 {
 			c.AbortWithStatusJSON(
 				http.StatusBadRequest,
@@ -70,7 +70,7 @@ func jwtTokenMiddleware(scope string) gin.HandlerFunc {
 			)
 			return
 		}
-		
+
 		if scope == "" {
 			log.Error("Middleware to inject scope into gin context failed; not able to finish authorizing JWT token")
 			c.AbortWithStatusJSON(
@@ -87,42 +87,7 @@ func jwtTokenMiddleware(scope string) gin.HandlerFunc {
 			c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
 			return
 		}
-	
+
 		c.Next()
 	}
 }
-
-// func hasRightScope(c *gin.Context, scope string) bool {
-// 	claims, ok := c.Request.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-// 	if !ok {
-// 		c.AbortWithStatusJSON(
-// 			http.StatusInternalServerError,
-// 			map[string]string{"message": "Failed to get validated JWT claims."},
-// 		)
-// 		return false
-// 	}
-
-// 	customClaims, ok := claims.CustomClaims.(*CustomClaimsExample)
-// 	if !ok {
-// 		c.AbortWithStatusJSON(
-// 			http.StatusInternalServerError,
-// 			map[string]string{"message": "Failed to cast custom JWT claims to specific type."},
-// 		)
-// 		return false
-// 	}
-
-// 	if len(customClaims.Scope) == 0 {
-// 		c.AbortWithStatusJSON(
-// 			http.StatusBadRequest,
-// 			map[string]string{"message": "Scope in JWT claims was empty."},
-// 		)
-// 		return false
-// 	}
-
-// 	if !strings.Contains(customClaims.Scope, scope) {
-// 		c.IndentedJSON(http.StatusForbidden, `{"message":"Insufficient scope."}`)
-// 		return false
-// 	}
-
-// 	return true
-// }

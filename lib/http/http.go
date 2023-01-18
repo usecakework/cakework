@@ -26,7 +26,6 @@ func Call(url string, method string, reqStruct interface{}, provider auth.Creden
 	reqDump, _ := httputil.DumpRequestOut(req, true)
 
 	log.Debug(string(reqDump))
-	fmt.Println(string(reqDump)) // TODO delete this
 
 	if err != nil {
 		return nil, nil, err
