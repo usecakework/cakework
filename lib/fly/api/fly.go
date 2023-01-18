@@ -26,29 +26,29 @@ Ex: fly scale vm dedicated-cpu-1x --memory 4096 (for apps not machine)
 **/
 
 type Fly struct {
-	Org string
+	Org                 string
 	CredentialsProvider auth.BearerStringCredentialsProvider
 }
 
 type Request struct {
-	Name string `json:"name"`
+	Name   string `json:"name"`
 	Config Config `json:"config,omitempty"`
 }
 
 type Config struct {
 	Image string `json:"image,omitempty"`
-	Guest Guest `json:"guest,omitempty"`
+	Guest Guest  `json:"guest,omitempty"`
 }
 
 type Guest struct {
-	CPUKind string `json:"cpu_kind,omitempty"`
-	CPUs int `json:"cpus,omitempty"`
-	MemoryMB int `json:"memory_mb,omitempty"`
+	CPUKind  string `json:"cpu_kind,omitempty"`
+	CPUs     int    `json:"cpus,omitempty"`
+	MemoryMB int    `json:"memory_mb,omitempty"`
 }
 
 func New(org string, credentialsProvider auth.BearerStringCredentialsProvider) *Fly {
 	fly := &Fly{
-		Org: org,
+		Org:                 org,
 		CredentialsProvider: credentialsProvider,
 	}
 
@@ -59,18 +59,18 @@ func New(org string, credentialsProvider auth.BearerStringCredentialsProvider) *
 func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, memoryMB int) error {
 	// make a post request to the internal fly api endpoint
 	url, _ := MachineUrl(flyApp)
-	req := Request {
+	req := Request{
 		Name: flyApp,
-		Config: Config {
+		Config: Config{
 			Image: image,
-			Guest: Guest {
-				CPUKind: "dedicated", // always use this
-				CPUs: cpus,
+			Guest: Guest{
+				CPUKind:  "dedicated", // always use this
+				CPUs:     cpus,
 				MemoryMB: memoryMB,
 			},
 		},
 	}
-	
+
 	data, res := http.Call(url, "POST", req, fly.CredentialsProvider)
 	if res.StatusCode != 200 {
 		fmt.Println(res)
@@ -82,7 +82,9 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 
 func MachineUrl(flyApp string) (string, error) {
 	u, err := url.Parse(FLY_API_HOSTNAME)
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 	u.Path = path.Join(u.Path, "v1/apps", flyApp, "machines")
 	return u.String(), nil
 }
