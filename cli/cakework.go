@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,10 +14,13 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -39,6 +45,8 @@ var gitIgnore embed.FS // for python only! TODO fix
 var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
+// var FRONTEND_URL = "https://cakework-frontend.fly.dev"
+var FRONTEND_URL = "http://localhost:8080" // local testing
 
 func main() {
 	var appName string
@@ -306,55 +314,12 @@ func main() {
 				Name:  "deploy",
 				Usage: "Deploy your Project",
 				Action: func(cCtx *urfaveCli.Context) error {
-					flyAppName := "105349741723321386951-fly-machines-say-hello"
-					out, err := fly.NewMachine(flyAppName, buildDirectory)
-					if err != nil {
-						return cli.Exit("Failed to deploy app fo Fly machine", 1)
-					}
-// 					out1 := `
-// --> Pushing image done
-// : Sending build context to Docker daemon  1.814kB
-// Image: registry.fly.io/105349741723321386951-fly-machines-say-hello:deployment-01GPYJ7431AKCSMR7GBZST0JQY
-// Image size: 147 MB
-
-// Success! A machine has been successfully launched in app 105349741723321386951-fly-machines-say-hello, waiting for it to be started
-//  Machine ID: e286000ce72e86
-//  Instance ID: 01GPYJ7KNBR6YPXRGYCV5BD40P
-//  State: created
-// ==> Monitoring health checks
-// No health checks found
-
-// Machine started, you can connect via the following private ip
-//   fdaa:0:f205:a7b:b385:5f1c:1594:2								
-// `
-					// fmt.Println(out1) // TODO delete
-					machineId, state, image, err1 := fly.GetMachineInfo(out)
-					// fmt.Printf("%s %s %s", machineId, state, image)
-					if err1 != nil {
-						fmt.Println("got an error")
-						fmt.Println(err1)
-					}
-
-					userId := "105349741723321386951"
-					projectId := "fly-machines"
-					task := "say-hello"
-
-					// make this a shared variable? 
-					// how to make sure the tokens are up to date?
-					// frontendClient := frontendclient.New("https://cakework-frontend.fly.dev", config.AccessToken, config.RefreshToken, "")
-					// frontendClient := frontendclient.New("https://cakework-frontend.fly.dev", credsProvider)
-					frontendClient := frontendclient.New("http://localhost:8080", credsProvider)
-
-					name := uuid.New().String() // generate a random string for the name
-					frontendClient.CreateMachine(userId, projectId, task, name, machineId, state, image)
-					return nil
-
 					// TODO need to check if we are logged in before deploying!!
 					// TODO: how to set the verbosity for every app?
 					// TODO: should we only allow allowd users to call this action? so as long as someone has the user id in the file then it's ok?
-					/*
 					
-					if !isLoggedIn() {
+					
+					if !isLoggedIn(*config) {
 						return cli.Exit("Please sign up or log in first", 1)
 					}
 
@@ -433,10 +398,12 @@ func main() {
 					// sanitize activity name and app name. in the future we don't need to do this anymore
 					appName = strings.ReplaceAll(strings.ToLower(appName), "_", "-") // in the future, infer these from the code
 
-					addConfigValue("App", appName)                                     // TODO change to project
 					taskName = strings.ReplaceAll(strings.ToLower(taskName), "_", "-") // in the future, infer these from the code
 
-					userId := getUserId()
+					userId, err := getUserId(configFile)
+					if err != nil {
+						return cli.Exit("Failed to get user id from Cakework config", 1)
+					}
 
 					flyAppName := userId + "-" + appName + "-" + taskName
 
@@ -480,27 +447,44 @@ func main() {
 						return cli.Exit("Failed to allocate ips for Fly app", 1)
 					}
 
-					// if machines exist, get list of machines and update all of them
-
 					// otherwise, create new machine
+					out, err := fly.NewMachine(flyAppName, buildDirectory)
+					if err != nil {
+						return cli.Exit("Failed to deploy app fo Fly machine", 1)
+					}
+					machineId, state, image, err1 := fly.GetMachineInfo(out)
+					// fmt.Printf("%s %s %s", machineId, state, image)
+					if err1 != nil {
+						fmt.Println("got an error")
+						fmt.Println(err1)
+					}
 
-					out, err := fly.DeployMachine(flyAppName, buildDirectory)
+					// make this a shared variable? 
+					// how to make sure the tokens are up to date?
+					// frontendClient := frontendclient.New("https://cakework-frontend.fly.dev", config.AccessToken, config.RefreshToken, "")
+					// frontendClient := frontendclient.New("https://cakework-frontend.fly.dev", credsProvider)
+					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+
+					name := uuid.New().String() // generate a random string for the name
+					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image)
+					if err != nil {
+						return cli.Exit("Failed to store deployed task in database", 1)
+					}
+
+					out, err = fly.NewMachine(flyAppName, buildDirectory)
 					if err != nil {
 						return cli.Exit("Failed to deploy app fo Fly machine", 1)
 					}
 
-					machineId, instanceId, state, image, err := fly.GetMachineInfo(out)
-					fmt.Printf("machineId: %s instanceId: %s state: %s image: %s", machineId, instanceId, state, image)
+					log.Debug("machineId: %s state: %s image: %s", machineId, state, image)
 					if err != nil {
 						fmt.Println("got an error")
 						fmt.Println(err)
 					}
 
-					
-
 					s.Stop()
 
-					// TODO run this (even if file doesn't exist) after every
+					// TODO run thcis (even if file doesn't exist) after every
 					err = os.Remove(filepath.Join(buildDirectory, "fly.toml"))
 					if err != nil {
 						fmt.Println("Failed to clean up build artifacts")
@@ -509,7 +493,7 @@ func main() {
 
 					fmt.Println("Successfully deployed your tasks! 🍰")
 					return nil
-					*/
+					
 				},
 			// }, {
 			// 	Name:  "task",
@@ -902,48 +886,43 @@ func isLoggedIn(config cwConfig.Config) bool {
 }
 
 // // should only call if a user is logged in
-// func getUserId() string {
-// 	jsonFile, err := os.Open(configFile)
-// 	check(err)
-// 	// defer the closing of our jsonFile so that we can parse it later on
-// 	defer jsonFile.Close()
+func getUserId(configFile string) (string, error) {
+	config, err := cwConfig.LoadConfig(configFile)
+	if err != nil {
+		return "", err
+	}
+	return config.UserId, nil // TODO may want to do some checks. assume this returns not ""
+}
 
-// 	var config Config
+// this also writes to the config file
+// note: field name needs to be in all caps!
+func addConfigValue(field string, value string) {
+	v := reflect.ValueOf(&config).Elem().FieldByName(field)
+	if v.IsValid() {
+		v.SetString(value)
+	}
 
-// 	byteValue, _ := ioutil.ReadAll(jsonFile)
-// 	json.Unmarshal(byteValue, &config)
-// 	return config.UserId // TODO may want to do some checks. assume this returns not ""
-// }
+	file, _ := json.MarshalIndent(config, "", " ")
 
-// // this also writes to the config file
-// // note: field name needs to be in all caps!
-// func addConfigValue(field string, value string) {
-// 	v := reflect.ValueOf(&config).Elem().FieldByName(field)
-// 	if v.IsValid() {
-// 		v.SetString(value)
-// 	}
+	err := ioutil.WriteFile(configFile, file, 0644)
+	check(err)
+}
 
-// 	file, _ := json.MarshalIndent(config, "", " ")
+type CustomClaimsExample struct {
+	Scope string `json:"scope"`
+}
 
-// 	err := ioutil.WriteFile(configFile, file, 0644)
-// 	check(err)
-// }
+// Validate errors out if `ShouldReject` is true.
+func (c *CustomClaimsExample) Validate(ctx context.Context) error {
+	// if c.ShouldReject {
+	// 	return errors.New("should reject was set to true")
+	// }
+	return nil
+}
 
-// type CustomClaimsExample struct {
-// 	Scope string `json:"scope"`
-// }
-
-// // Validate errors out if `ShouldReject` is true.
-// func (c *CustomClaimsExample) Validate(ctx context.Context) error {
-// 	// if c.ShouldReject {
-// 	// 	return errors.New("should reject was set to true")
-// 	// }
-// 	return nil
-// }
-
-// func (c *CustomClaimsExample) Valid() error {
-// 	return nil
-// }
+func (c *CustomClaimsExample) Valid() error {
+	return nil
+}
 
 // func refreshAndSaveTokens() {
 // 	// fetch new tokens
