@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/usecakework/cakework/lib/auth"
-	"github.com/usecakework/cakework/lib/fly"
+	fly "github.com/usecakework/cakework/lib/fly/cli"
 	"github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/types"
 )

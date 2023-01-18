@@ -14,7 +14,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/usecakework/cakework/lib/config"
 	cwConfig "github.com/usecakework/cakework/lib/config"
-	// cwHttp "github.com/usecakework/cakework/lib/http"
 )
 
 var (
