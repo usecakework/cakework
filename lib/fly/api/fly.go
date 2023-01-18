@@ -26,7 +26,8 @@ Ex: fly scale vm dedicated-cpu-1x --memory 4096 (for apps not machine)
 **/
 
 type Fly struct {
-	Org                 string
+	Org string
+	Endpoint string
 	CredentialsProvider auth.BearerStringCredentialsProvider
 }
 
@@ -46,9 +47,10 @@ type Guest struct {
 	MemoryMB int    `json:"memory_mb,omitempty"`
 }
 
-func New(org string, credentialsProvider auth.BearerStringCredentialsProvider) *Fly {
+func New(org string, endpoint string, credentialsProvider auth.BearerStringCredentialsProvider) *Fly {
 	fly := &Fly{
-		Org:                 org,
+		Org: org,
+		Endpoint: endpoint,
 		CredentialsProvider: credentialsProvider,
 	}
 
@@ -70,8 +72,11 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 			},
 		},
 	}
-
-	data, res := http.Call(url, "POST", req, fly.CredentialsProvider)
+	
+	data, res, err := http.Call(url, "POST", req, fly.CredentialsProvider)
+	if err != nil {
+		return err
+	}
 	if res.StatusCode != 200 {
 		fmt.Println(res)
 		fmt.Println(data)
