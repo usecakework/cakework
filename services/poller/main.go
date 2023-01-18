@@ -12,15 +12,14 @@ import (
 	"path"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/usecakework/cakework/lib/auth"
 	flyUtil "github.com/usecakework/cakework/lib/fly"
 	flyApi "github.com/usecakework/cakework/lib/fly/api"
 	pb "github.com/usecakework/cakework/poller/proto/cakework"
-
-	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc"
 )
 
@@ -58,12 +57,6 @@ var credentialsProvider auth.BearerStringCredentialsProvider
 const NATS_URL = "cakework-nats-cluster.internal"
 
 func main() {
-	// mycmd := exec.Command("bash", "-c", "pwd")
-	// // print(cmd.RunCmd(mycmd, "/Users/jessieyoung/"))
-
-	// fly := fly.New("/Users/jessieyoung/.fly/bin/fly")
-	// fly.DeployMachine("dummyApp", "dummyImage")
-	// TODO deploy
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	
@@ -125,23 +118,23 @@ func poll(js nats.JetStreamContext) {
 	 
 	    defer cancel()
 
-      msgs, _ := sub.Fetch(10, nats.Context(ctx))
-      for _, msg := range msgs {
-         msg.Ack()
-         var taskRun TaskRun
-         err := json.Unmarshal(msg.Data, &taskRun)
+    	msgs, _ := sub.Fetch(10, nats.Context(ctx))
+      	for _, msg := range msgs {
+			msg.Ack()
+			var taskRun TaskRun
+			err := json.Unmarshal(msg.Data, &taskRun)
 
-
-		 // TODO delete this
-		 fmt.Println("got a task run")
-		 fmt.Println(taskRun)
-         if err != nil {
-			fmt.Println(err)
-            // log.Fatal(err)
-         }
-         log.Printf("UserId: %s, App: %s, Task:%s, Parameters: %s, RequestId: %s, Status: %s, Result: %s\n", taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.RequestId, taskRun.Status, taskRun.Result)
-         runTask(js, taskRun)
-      }
+			log.Info("Got task run")
+			
+			if err != nil {
+				fmt.Println(err)
+			}
+			// log.Printf("UserId: %s, App: %s, Task:%s, Parameters: %s, RequestId: %s, Status: %s, Result: %s\n", taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.RequestId, taskRun.Status, taskRun.Result)
+			if err := runTask(js, taskRun); err != nil { // TODO: handle error if RunTask throws an error
+				log.Error("Error while processing task for " + taskRun.UserId + ", " + taskRun.App + ", " + taskRun.Task + ", " + taskRun.RequestId)
+				log.Error(err)
+			}
+		}
    }
 }
 
@@ -153,15 +146,48 @@ func checkErr(err error) {
 
 // reviewOrder reviews the order and publishes ORDERS.approved event
 func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
+	flyApp := flyUtil.GetFlyAppName(taskRun.UserId, taskRun.App, taskRun.Task)	
+
+	image, err := db.GetLatestImage(flyApp)
+	if err != nil {
+		log.Error("Failed to get latest image to deploy")
+		return err 
+	}
+
+
 	// spin up a new fly machine
+	// get latest image so we know the version to spin up
+	// every time we trigger a new deploy from the cli, we will update the the FlyMachine table
+	// query for the latest created FlyMachine triggered by the cli and get the image from it
+	// we don't update machines, we just spin up and spin down
+	// use the image to spin up a new machine
+	// once the spin up succeeds, parse the response to get the machine id 
+	// submit request to the machine
+
+	// so cli: 
+	// spin up a new fly machine with source=CLI
+	// insert into FlyMachine table via call to the frontend
+
 	// TODO remove hardcoding
 	image := "registry.fly.io/fly-machines:deployment-01GPYM48RWAP9GHWKWP0FNRE4D"
 	cpus := 1
 	memoryMB := 256
+
+	// TODO hard code this 
+
+	// TODO remoe!!!!!!!
+	taskRun.UserId = "105349741723321386951"
+	taskRun.App = "fly-machines"
+	taskRun.Task = "say-hello"
+	taskRun.RequestId = "my-request-id"
+
+	/////
 	// TODO get the latest created image from the FlyMachine table 
-	flyApp := flyUtil.GetFlyAppName(taskRun.UserId, taskRun.App, taskRun.Task)
-	
+	flyApp := flyUtil.GetFlyAppName(taskRun.UserId, taskRun.App, taskRun.Task)	
+
 	err := fly.NewMachine(flyApp, taskRun.RequestId, image, cpus, memoryMB)
+	// TODO get response so we know what machine id to persist in frontend, as well as the machine id to invoke 
+
 	if err != nil {
 		log.Error(err)
 		log.Error("Failed to deploy new Fly machine")
@@ -174,7 +200,9 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 	if local == true {
 		endpoint = "localhost:50051"
 	} else {
-		endpoint = taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
+		endpoint = "http://5683dd4b73d78e.vm.fly-machines.internal:50051"
+
+		// endpoint = taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
 	}
     // conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
 	// endpoint := taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
@@ -273,6 +301,7 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 		// what if this is updated to in progress but the python process sets to complete at the same time? should just let python deal with it.
 
 		// note: can ignore the response from the worker for now
+		// TODO: make sure don't print this out until we actually succeed
 		log.Println("Successfully submitted task to worker") // don't really need this
 
 		// log.Printf("Successfully submitted task to worker:  %s", response.Result) // don't really need this
