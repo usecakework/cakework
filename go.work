@@ -1,0 +1,10 @@
+go 1.19
+
+use ./cli
+
+use ./lib
+
+use ./services/frontend
+
+use ./services/poller
+

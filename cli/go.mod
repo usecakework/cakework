@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/viper v1.14.0
 	github.com/urfave/cli/v2 v2.23.7
-	github.com/usecakework/cakework/lib v0.0.0-00010101000000-000000000000
+	github.com/usecakework/cakework/lib v0.0.0
 )
 
 require (

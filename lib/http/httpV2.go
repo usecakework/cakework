@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/usecakework/cakework/lib/auth"
@@ -71,10 +72,20 @@ func CallHttpAuthedV2(req *http.Request, provider auth.CredentialsProvider) (*ht
 // takes *http.Request, does not perform auth
 // not really ideal, remember to close when you use this
 func CallHttpV2(req *http.Request) (*http.Response, error) {
-	res, err := http.DefaultClient.Do(req)
+	fmt.Println("Request: ") // TODO delete
+	fmt.Println(PrettyPrintRequest(req)) // TODO delete
+	client := http.Client {
+		Timeout: time.Second * 60,
+	}
+	
+	res, err := client.Do(req)
+	
 	if err != nil {
 		return nil, err
 	}
+	
+	fmt.Println("Response: ") // TODO delete
 
+	fmt.Println(PrettyPrintResponse(res)) // TODO delete
 	return res, nil
 }

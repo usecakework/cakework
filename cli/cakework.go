@@ -49,6 +49,13 @@ var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
 
+<<<<<<< HEAD
+=======
+// var FRONTEND_URL = "https://cakework-frontend.fly.dev"
+
+var FRONTEND_URL = "http://localhost:8080" // local testing TODO delete
+
+>>>>>>> 66d919d (stop fly machine when task completes)
 func main() {
 	var appName string
 	var language string
@@ -516,6 +523,7 @@ if __name__ == "__main__":
 					name := uuid.New().String() // generate a random string for the name
 					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image, "CLI")
 					if err != nil {
+						fmt.Println(err)
 						return errors.New("Failed to store deployed task in database")
 					}
 
@@ -524,7 +532,7 @@ if __name__ == "__main__":
 						return errors.New("Failed to deploy app to Fly machine")
 					}
 
-					log.Debug("machineId: %s state: %s image: %s", machineId, state, image)
+					log.Debugf("machineId: %s state: %s image: %s", machineId, state, image)
 
 					s.Stop()
 

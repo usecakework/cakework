@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
@@ -47,18 +48,6 @@ type TaskRequest struct {
 	App        string `json:"app"`
 	Task       string `json:"task"`
 	Parameters string `json:"parameters"`
-}
-
-// Q: how to share this type with the poller class?
-// deprectated? migrate to Request?
-type TaskRun struct {
-	UserId     string `json:"userId"`
-	App        string `json:"app"`
-	Task       string `json:"task"`
-	Parameters string `json:"parameters"`
-	RequestId  string `json:"requestId"`
-	Status     string `json:"status"`
-	Result     string `json:"result"`
 }
 
 var db *sql.DB
@@ -120,7 +109,7 @@ func main() {
 	}
 	defer db.Close()
 	db.SetConnMaxLifetime(time.Minute * 3)
-	db.SetMaxOpenConns(10)
+	db.SetMaxOpenConns(100)
 	db.SetMaxIdleConns(10)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -183,6 +172,13 @@ func guidMiddleware() gin.HandlerFunc {
 		uuid := uuid.New()
 		c.Set("uuid", uuid)
 		log.Printf("Request started: %s\n", uuid)
+		reqDump, err := httputil.DumpRequest(c.Request, true) // TODO delete this later!
+		if err != nil {
+			log.Error("Got error while printing request")
+			log.Error(err)
+		} else {
+			log.Info(string(reqDump)) // TODO delete
+		}
 		c.Next()
 		log.Printf("Request finished: %s\n", uuid)
 	}
@@ -198,10 +194,11 @@ func authMiddleware() gin.HandlerFunc {
 	}
 }
 
+// TODO have this throw error?
 func submitTask(c *gin.Context) {
-	var newTaskRequest TaskRequest
+	var req types.Request
 
-	if err := c.BindJSON(&newTaskRequest); err != nil {
+	if err := c.BindJSON(&req); err != nil {
 		fmt.Println("got error reading in request")
 		fmt.Println(err)
 		return
@@ -210,24 +207,21 @@ func submitTask(c *gin.Context) {
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
 	// sanitize; convert app and task name to lower case, only hyphens
-	userId := strings.Replace(strings.ToLower(newTaskRequest.UserId), "_", "-", -1)
-	app := strings.Replace(strings.ToLower(newTaskRequest.App), "_", "-", -1)
-	task := strings.Replace(strings.ToLower(newTaskRequest.Task), "_", "-", -1)
+	userId := strings.Replace(strings.ToLower(req.UserId), "_", "-", -1)
+	app := strings.Replace(strings.ToLower(req.App), "_", "-", -1)
+	task := strings.Replace(strings.ToLower(req.Task), "_", "-", -1)
 
-	newTaskRun := TaskRun{
-		UserId:     userId,
-		App:        app,
-		Task:       task,
-		Parameters: newTaskRequest.Parameters,
-		RequestId:  (uuid.New()).String(),
-		Status:     "PENDING",
-	}
+	req.UserId = userId
+	req.App = app
+	req.Task = task
+	req.RequestId = (uuid.New()).String()
+	req.Status = "PENDING"
 
 	// enqueue this message
-	if createTaskRun(newTaskRun) != nil { // TODO check whether this is an err; if so, return different status code
+	if createRequest(req) != nil { // TODO check whether this is an err; if so, return different status code
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 	} else {
-		c.IndentedJSON(http.StatusCreated, newTaskRun)
+		c.IndentedJSON(http.StatusCreated, req)
 	}
 }
 
@@ -440,20 +434,20 @@ func updateResult(c *gin.Context) {
 }
 
 // no need to add scope checking here, as this is not directly invoked by a route
-func createTaskRun(taskRun TaskRun) error {
-	taskRunJSON, _ := json.Marshal(taskRun)
+func createRequest(req types.Request) error {
+	reqJSON, _ := json.Marshal(req)
 
-	_, err := js.Publish(subjectName, taskRunJSON)
+	_, err := js.Publish(subjectName, reqJSON)
 	if err != nil {
 		fmt.Println("error while publishing")
 		fmt.Println(err)
 		return err // TODO return a human readable error
 	} else {
-		log.Printf("Task run with RequestId:%s has been published\n", taskRun.RequestId)
+		log.Printf("Request with RequestId:%s has been published\n", req.RequestId)
 		// update the database
 		log.Printf("Inserting into db now")
-		query := "INSERT INTO `TaskRun` (`requestId`, `userId`, `app`, `task`, `parameters`, `status`) VALUES (?, ?, ?, ?, ?, ?)"
-		insertResult, err := db.ExecContext(context.Background(), query, taskRun.RequestId, taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.Status)
+		query := "INSERT INTO `TaskRun` (`requestId`, `userId`, `app`, `task`, `parameters`, `status`, `cpu`, `memoryMB`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+		insertResult, err := db.ExecContext(context.Background(), query, req.RequestId, req.UserId, req.App, req.Task, req.Parameters, req.Status, req.CPU, req.MemoryMB)
 		if err != nil {
 			fmt.Printf("impossible to insert : %s", err)
 			return err
@@ -468,23 +462,24 @@ func createTaskRun(taskRun TaskRun) error {
 }
 
 // TODO deprecate in favor of request.getRequest
-func getTaskRun(userId string, app string, requestId string) (TaskRun, error) {
+// TODO change to getRequest
+func getTaskRun(userId string, app string, requestId string) (types.Request, error) {
 
 	// TODO use the userId and app
-	var taskRun TaskRun
+	var req types.Request
 	var result sql.NullString
-	err = db.QueryRow("SELECT userId, app, task, parameters, requestId, status, result FROM TaskRun where requestId = ?", requestId).Scan(&taskRun.UserId, &taskRun.App, &taskRun.Task, &taskRun.Parameters, &taskRun.RequestId, &taskRun.Status, &result)
+	err = db.QueryRow("SELECT userId, app, task, parameters, requestId, status, result, cpu, memoryMB FROM TaskRun where requestId = ?", requestId).Scan(&req.UserId, &req.App, &req.Task, &req.Parameters, &req.RequestId, &req.Status, &result, &req.CPU, &req.MemoryMB)
 	if err != nil {
 		// if err == sql.ErrNoRows {
-		return taskRun, err
+		return req, err
 		// }
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
 	} else {
 		if result.Valid {
-			taskRun.Result = result.String
+			req.Result = result.String
 		}
-		fmt.Println(taskRun)
-		return taskRun, nil
+		// fmt.Println(req)
+		return req, nil
 	}
 
 }
@@ -604,6 +599,7 @@ func createUser(c *gin.Context) {
 }
 
 func getUserFromClientToken(c *gin.Context) {
+	
 	// fetch the client token by the token value
 	// return the user
 	var newRequest types.GetUserByClientTokenRequest

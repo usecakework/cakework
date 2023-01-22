@@ -19,13 +19,10 @@ import grpc
 from cakework import cakework_pb2
 from cakework import cakework_pb2_grpc
 import json
-import importlib
-# import os
-import time
+import os
 import threading
 import requests
 import logging
-import http.client
 from cakework import auth
 
 logging.basicConfig(level=logging.INFO)
@@ -75,6 +72,9 @@ class Cakework(cakework_pb2_grpc.CakeworkServicer):
             response = requests.patch(f"{self.frontend_url}/update-status", json={"userId": user_id, "app": app, "requestId": request_id, "status": "FAILED"})
             # TODO: handle case if updating the status in the db failed; then user may keep polling forever
             return cakework_pb2.Reply(result=None)
+        finally:
+            logging.info("Request complete, exiting vm")
+            os._exit(1)
 
         # Q: who are we returning to here? instead of returning, we can just write this to the database. or emit a message and have the poller be in charge of writing to db
         return cakework_pb2.Reply(result=json.dumps(res))

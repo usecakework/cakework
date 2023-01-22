@@ -10,8 +10,15 @@ type Request struct {
 	Status     string `json:"status"`
 	Parameters string `json:"parameters"`
 	Result     string `json:"result"`
+	CPU        int `json:"cpu"`
+	MemoryMB   int `json:"memory"`
 	CreatedAt  int64  `json:"created_at"`
 	UpdatedAt  int64  `json:"updated_at"`
+}
+
+type Compute struct {
+	CPU        string `json:"cpu"`
+	MemoryMB   string `json:"memoryMB"`
 }
 
 type RequestLogLine struct {
@@ -74,7 +81,8 @@ type CreateMachineRequest struct {
 	Source    string `json:"source"`
 }
 
-type CreateMachineResponse struct {
+// TODO add cpu and memory info and other config info to the machine? 
+type FlyMachine struct {
 	UserId    string `json:"userId"`
 	Project   string `json:"project"`
 	Task      string `json:"task"`
