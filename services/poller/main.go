@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -19,24 +21,16 @@ import (
 	"github.com/usecakework/cakework/lib/auth"
 	flyUtil "github.com/usecakework/cakework/lib/fly"
 	flyApi "github.com/usecakework/cakework/lib/fly/api"
+	"github.com/usecakework/cakework/lib/types"
 	pb "github.com/usecakework/cakework/poller/proto/cakework"
 	"google.golang.org/grpc"
 )
 
 const (
 	subSubjectName ="TASKS.created"
- 
+	DEFAULT_CPU = 1
+	DEFAULT_MEMORY_MB = 256
  )
-
- type TaskRun struct {
-    UserId     string  `json:"userId"`
-	App	string `json:"app"`
-	Task string `json:"task"`
-    Parameters  string  `json:"parameters"`
-	RequestId     string  `json:"requestId"`
-	Status	string `json:"status"`
-	Result  string  `json:"result"`
-}
 
 type UpdateStatusRequest struct {
 	UserId     string  `json:"userId"`
@@ -53,8 +47,10 @@ var flyMachineUrl string
 var accessToken, refreshToken string
 var fly *flyApi.Fly
 var credentialsProvider auth.BearerStringCredentialsProvider
+var db *sql.DB
 
 const NATS_URL = "cakework-nats-cluster.internal"
+const DSN = "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true&parseTime=true"
 
 func main() {
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
@@ -99,15 +95,31 @@ func main() {
    
 	// Create Pull based consumer with maximum 128 inflight.
    // PullMaxWaiting defines the max inflight pull requests.
-   go poll(js)
-   gin.SetMode(gin.ReleaseMode)
-   router := gin.Default()
+   	go poll(js)
+   	gin.SetMode(gin.ReleaseMode)
+   	router := gin.Default()
 
-   accessToken, refreshToken = getToken()
-   credentialsProvider = auth.BearerStringCredentialsProvider{ Token: "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo" } // TODO remove this and rotate
+   	accessToken, refreshToken = getToken()
+   	credentialsProvider = auth.BearerStringCredentialsProvider{ Token: "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo" } // TODO remove this and rotate
 
-   fly = flyApi.New("sahale", "http://127.0.0.1:4280", credentialsProvider) // TODO remove this secret for public launch
-   router.Run(":8081")
+   	fly = flyApi.New("sahale", flyMachineUrl, credentialsProvider) // TODO remove this secret for public launch
+   
+   	db, err = sql.Open("mysql", DSN)
+   	if err != nil {
+		log.Error("Failed to open database connection")
+		log.Error(err)
+   	}
+   	db.SetConnMaxLifetime(time.Minute * 3)
+   	db.SetMaxOpenConns(100)
+   	db.SetMaxIdleConns(10)
+
+   	defer db.Close()
+
+   	if err != nil {
+		log.Error("Failed to initialize database connection")
+	   	log.Error(err)
+   	}  
+   	router.Run(":8081")
 }
 
 func poll(js nats.JetStreamContext) {
@@ -121,17 +133,16 @@ func poll(js nats.JetStreamContext) {
     	msgs, _ := sub.Fetch(10, nats.Context(ctx))
       	for _, msg := range msgs {
 			msg.Ack()
-			var taskRun TaskRun
-			err := json.Unmarshal(msg.Data, &taskRun)
+			var req types.Request
+			err := json.Unmarshal(msg.Data, &req)
 
-			log.Info("Got task run")
+			log.Infof("Got request: " + req.UserId + ", " + req.App + ", " + req.Task + ", " + req.RequestId)
 			
 			if err != nil {
 				fmt.Println(err)
 			}
-			// log.Printf("UserId: %s, App: %s, Task:%s, Parameters: %s, RequestId: %s, Status: %s, Result: %s\n", taskRun.UserId, taskRun.App, taskRun.Task, taskRun.Parameters, taskRun.RequestId, taskRun.Status, taskRun.Result)
-			if err := runTask(js, taskRun); err != nil { // TODO: handle error if RunTask throws an error
-				log.Error("Error while processing task for " + taskRun.UserId + ", " + taskRun.App + ", " + taskRun.Task + ", " + taskRun.RequestId)
+			if err := runTask(js, req); err != nil { // TODO: handle error if RunTask throws an error
+				log.Error("Error while processing task for " + req.UserId + ", " + req.App + ", " + req.Task + ", " + req.RequestId)
 				log.Error(err)
 			}
 		}
@@ -145,15 +156,14 @@ func checkErr(err error) {
 }
 
 // reviewOrder reviews the order and publishes ORDERS.approved event
-func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
-	flyApp := flyUtil.GetFlyAppName(taskRun.UserId, taskRun.App, taskRun.Task)	
+func runTask(js nats.JetStreamContext, req types.Request) error {
+	flyApp := flyUtil.GetFlyAppName(req.UserId, req.App, req.Task)	
 
-	image, err := db.GetLatestImage(flyApp)
+	image, err := GetLatestImage(flyApp, db)
 	if err != nil {
 		log.Error("Failed to get latest image to deploy")
 		return err 
 	}
-
 
 	// spin up a new fly machine
 	// get latest image so we know the version to spin up
@@ -164,49 +174,65 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 	// once the spin up succeeds, parse the response to get the machine id 
 	// submit request to the machine
 
-	// so cli: 
+	// in cli: 
 	// spin up a new fly machine with source=CLI
 	// insert into FlyMachine table via call to the frontend
 
 	// TODO remove hardcoding
-	image := "registry.fly.io/fly-machines:deployment-01GPYM48RWAP9GHWKWP0FNRE4D"
-	cpus := 1
-	memoryMB := 256
+	var cpu int
+	var memoryMB int
+	if req.CPU == 0 {
+		cpu = DEFAULT_CPU
+	} else {
+		cpu = req.CPU
+	}
+	if req.MemoryMB == 0 {
+		memoryMB = DEFAULT_MEMORY_MB
+	} else {
+		memoryMB = req.MemoryMB
+	}
 
-	// TODO hard code this 
+	// TODO remove these dummy values
+	// req.UserId = "105349741723321386951"
+	// taskRun.App = "fly-machines"
+	// taskRun.Task = "say-hello"
+	// taskRun.RequestId = "my-request-id"
 
-	// TODO remoe!!!!!!!
-	taskRun.UserId = "105349741723321386951"
-	taskRun.App = "fly-machines"
-	taskRun.Task = "say-hello"
-	taskRun.RequestId = "my-request-id"
+	log.Infof("Spinning up a machine with parameters: %s, %s, %s, %d, %d", flyApp, req.RequestId, image, cpu, memoryMB)
+	machineConfig, err := fly.NewMachine(flyApp, req.RequestId, image, cpu, memoryMB)
+	if err != nil {
+		log.Error("Failed to spin up new Fly machine")
+		return err
+	}
 
-	/////
-	// TODO get the latest created image from the FlyMachine table 
-	flyApp := flyUtil.GetFlyAppName(taskRun.UserId, taskRun.App, taskRun.Task)	
+	if machineConfig.MachineId == "" {
+		return errors.New("Machine id of spun up machine is null; error occurred somewhere")
+	}
 
-	err := fly.NewMachine(flyApp, taskRun.RequestId, image, cpus, memoryMB)
-	// TODO get response so we know what machine id to persist in frontend, as well as the machine id to invoke 
-
+	// wait for machine to get to started status
+	desiredState := "started"
+	err = fly.Wait(flyApp, machineConfig.MachineId, desiredState)
 	if err != nil {
 		log.Error(err)
-		log.Error("Failed to deploy new Fly machine")
+		return errors.New("Machine failed to reach " + desiredState + " in 60 seconds. Needs longer timeout, or an error occurred")
+		// TODO also fetch and print out current state, for debugging
 	}
+
+	// TODO get response so we know what machine id to persist in frontend, as well as the machine id to invoke 
+	// TODO insert into the FlyMachine table for tracking. For now, don't need to bother
 
 	var conn *grpc.ClientConn
 
 	var endpoint string
 
 	if local == true {
-		endpoint = "localhost:50051"
+		// endpoint = "localhost:50051" // not yet supported; for running the grpc server locally
+		endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	} else {
-		endpoint = "http://5683dd4b73d78e.vm.fly-machines.internal:50051"
-
-		// endpoint = taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
+		endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	}
-    // conn, err := grpc.Dial("shared-app-say-hello.fly.dev:443", grpc.WithInsecure())
-	// endpoint := taskRun.UserId + "-" + taskRun.App + "-" + taskRun.Task + ".fly.dev:443" // TODO replace this with the actual name of the fly task (uuid)
 
+	log.Info("Attempting to send request to machine endpoint: " + endpoint)
     conn, err = grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool? 
 
 	if err != nil {
@@ -217,7 +243,7 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 	defer conn.Close()
 
 	c := pb.NewCakeworkClient(conn)
-	createReq := pb.Request{ Parameters: taskRun.Parameters, UserId: taskRun.UserId, App: taskRun.App, RequestId: taskRun.RequestId }
+	createReq := pb.Request{ Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId }
 	_, errRunActivity := c.RunActivity(context.Background(), &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!! 
 	if errRunActivity != nil {
 		// TODO check what type of error. possible to see if it's an rpc error?
@@ -226,9 +252,9 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 		fmt.Println(errRunActivity) // TODO log this as an error
 
 		updateReq := UpdateStatusRequest {
-			UserId: taskRun.UserId,
-			App: taskRun.App,
-			RequestId: taskRun.RequestId,
+			UserId: req.UserId,
+			App: req.App,
+			RequestId: req.RequestId,
 			Status: "FAILED",
 		}
 
@@ -244,10 +270,6 @@ func runTask(js nats.JetStreamContext, taskRun TaskRun) error {
 		u, err := url.Parse(frontendUrl)
 		if err != nil { fmt.Println(err) }
 		u.Path = path.Join(u.Path, "update-status")
-
-		// fmt.Println("calling url: " + u.String())
-	
-		// 3.
 
 		req, err := http.NewRequest(http.MethodPatch, u.String(), bytes.NewBuffer(jsonReq))
 		req.Header.Set("Content-Type", "application/json")
