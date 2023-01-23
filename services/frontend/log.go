@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -42,8 +41,6 @@ func getLogs(simpleQuery string) (*types.RequestLogs, error) {
 
 	var requestLogs types.RequestLogs
 	json.Unmarshal(body, &requestLogs)
-
-	fmt.Println(requestLogs)
 
 	return &requestLogs, nil
 }

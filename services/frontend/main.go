@@ -153,7 +153,7 @@ func main() {
 		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, jwtTokenMiddleware("get:task_status"))                                  // the scope is incorrectly named. TODO fix
 		jwtProtectedGroup.GET("/request/logs", handleGetRequestLogs)
 		jwtProtectedGroup.POST("/create-machine", createMachine, jwtTokenMiddleware("create:machine"))
-		jwtProtectedGroup.PATCH("/update-machine-id", updateMachineId, jwtTokenMiddleware("update:machine_id"))                                   // TODO change to POST /request/status/requestId
+		jwtProtectedGroup.PATCH("/update-machine-id", updateMachineId, jwtTokenMiddleware("update:machine_id")) // TODO change to POST /request/status/requestId
 
 		// TODO have an add-task
 	}
@@ -305,13 +305,7 @@ func getStatus(c *gin.Context) {
 		return
 	}
 
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	userId := util.SanitizeUserId(newGetStatusRequest.UserId)
-	app := util.SanitizeAppName(newGetStatusRequest.App)
-
-	taskRun, err := getTaskRun(userId, app, newGetStatusRequest.RequestId)
+	request, err := getRequestDetails(db, newGetStatusRequest.RequestId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
@@ -321,7 +315,7 @@ func getStatus(c *gin.Context) {
 		}
 	} else {
 		response := types.GetStatusResponse{
-			Status: taskRun.Status,
+			Status: request.Status,
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}
@@ -336,13 +330,7 @@ func getResult(c *gin.Context) {
 		return
 	}
 
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	userId := strings.Replace(strings.ToLower(newGetResultRequest.UserId), "_", "-", -1)
-	app := strings.Replace(strings.ToLower(newGetResultRequest.App), "_", "-", -1)
-
-	taskRun, err := getTaskRun(userId, app, newGetResultRequest.RequestId)
+	request, err := getRequestDetails(db, newGetResultRequest.RequestId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
@@ -352,13 +340,11 @@ func getResult(c *gin.Context) {
 		}
 	} else {
 		response := types.GetResultResponse{
-			Result: taskRun.Result,
+			Result: request.Result,
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}
 }
-
-
 
 func updateStatus(c *gin.Context) {
 	var request types.UpdateStatusRequest
@@ -506,29 +492,6 @@ func createRequest(req types.Request) error {
 	return nil
 }
 
-// TODO deprecate in favor of request.getRequest
-// TODO change to getRequest
-func getTaskRun(userId string, app string, requestId string) (types.Request, error) {
-
-	// TODO use the userId and app
-	var req types.Request
-	var result sql.NullString
-	err = db.QueryRow("SELECT userId, app, task, parameters, requestId, status, result, cpu, memoryMB FROM TaskRun where requestId = ?", requestId).Scan(&req.UserId, &req.App, &req.Task, &req.Parameters, &req.RequestId, &req.Status, &result, &req.CPU, &req.MemoryMB)
-	if err != nil {
-		// if err == sql.ErrNoRows {
-		return req, err
-		// }
-		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
-	} else {
-		if result.Valid {
-			req.Result = result.String
-		}
-		// fmt.Println(req)
-		return req, nil
-	}
-
-}
-
 // createStream creates a stream by using JetStreamContext
 func createStream(js nats.JetStreamContext) error {
 	// Check if the ORDERS stream already exists; if not, create it.
@@ -644,7 +607,7 @@ func createUser(c *gin.Context) {
 }
 
 func getUserFromClientToken(c *gin.Context) {
-	
+
 	// fetch the client token by the token value
 	// return the user
 	var newRequest types.GetUserByClientTokenRequest
