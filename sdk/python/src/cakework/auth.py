@@ -1,6 +1,5 @@
 import http.client
 import json
-import requests # TODO remove this
 from cakework.exceptions import CakeworkError
 
 

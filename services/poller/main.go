@@ -9,11 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,10 +20,11 @@ import (
 	"github.com/usecakework/cakework/lib/auth"
 	flyUtil "github.com/usecakework/cakework/lib/fly"
 	flyApi "github.com/usecakework/cakework/lib/fly/api"
-	cwHttp "github.com/usecakework/cakework/lib/http"
+	"github.com/usecakework/cakework/lib/frontendclient"
 	"github.com/usecakework/cakework/lib/types"
 	pb "github.com/usecakework/cakework/poller/proto/cakework"
 	"google.golang.org/grpc"
+	grpcMetadata "google.golang.org/grpc/metadata"
 )
 
 const (
@@ -50,9 +47,9 @@ var frontendUrl string
 var flyMachineUrl string
 var DSN string
 
-var accessToken, refreshToken string
 var fly *flyApi.Fly
-var credentialsProvider auth.BearerStringCredentialsProvider
+var flyCredentialsProvider auth.BearerStringCredentialsProvider
+var frontendCredentialsProvider auth.ClientCredentialsCredentialsProvider
 var db *sql.DB
 
 //go:embed .env
@@ -63,16 +60,17 @@ var envFile []byte
 //go:embed fly.toml
 var flyConfig embed.FS
 
+var frontendClient frontendclient.Client
+var stage string
+
 func main() {
-	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally")     // can pass go run main.go -local
 	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 
 	flag.Parse()
 
-	local = *localPtr
 	verbose = *verbosePtr
 
-	stage := os.Getenv("STAGE")
+	stage = os.Getenv("STAGE")
 	if stage == "" {
 		log.Fatal("Failed to get stage from environment variable")
 	} else {
@@ -120,11 +118,14 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	accessToken, refreshToken = getToken()
 	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
-	credentialsProvider = auth.BearerStringCredentialsProvider{Token: FLY_ACCESS_TOKEN}
+	flyCredentialsProvider = auth.BearerStringCredentialsProvider{ Token: FLY_ACCESS_TOKEN }
+	frontendCredentialsProvider = auth.ClientCredentialsCredentialsProvider{
+		ClientSecret: viper.GetString("AUTH0_CLIENT_SECRET"), // not setting the tokens, so a new set will be fetched
+	}
+	frontendClient = *frontendclient.New(frontendUrl, frontendCredentialsProvider)
 
-	fly = flyApi.New("sahale", flyMachineUrl, credentialsProvider) // TODO remove this secret for public launch
+	fly = flyApi.New("sahale", flyMachineUrl, flyCredentialsProvider)
 
 	db, err = sql.Open("mysql", DSN)
 	if err != nil {
@@ -231,23 +232,11 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		return errors.New("Machine id of spun up machine is null; error occurred somewhere")
 	}
 
-	updateMachineIdReq := types.UpdateMachineId {
-		UserId: req.UserId,
-		App: req.RequestId,
-		RequestId: req.RequestId,
-		MachineId: machineConfig.MachineId,
-	}
+	err = frontendClient.UpdateMachineId(req.UserId, req.App, req.RequestId, machineConfig.MachineId)
 
-	u, err := url.Parse(frontendUrl)
 	if err != nil {
-		fmt.Println(err)
-	}
-	u.Path = path.Join(u.Path, "update-machine-id")
-
-	_, _, err = cwHttp.Call(u.String(), http.MethodPatch, updateMachineIdReq, credentialsProvider)
-	if err != nil {
-		log.Info(err)
-		log.Fatal("Failed to update the request in the db with the machine id")
+		log.Error("Got an error while trying to update the machine id")
+		return err
 	} else {
 		log.Info("Successfully updated machine id in db")
 	}
@@ -268,9 +257,9 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 
 	var endpoint string
 
-	if local == true {
-		// endpoint = "localhost:50051" // not yet supported; for running the grpc server locally
-		endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
+	if stage == "dev" {
+		endpoint = "localhost:50051" // not yet supported; for running the grpc server locally
+		// endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	} else {
 		endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	}
@@ -285,75 +274,22 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 	}
 	defer conn.Close()
 
+
+	// Add token to gRPC Request.
+	ctx := context.Background()
+	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer " + frontendCredentialsProvider.AccessToken)
+
 	c := pb.NewCakeworkClient(conn)
 	createReq := pb.Request{Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId}
-	_, errRunActivity := c.RunActivity(context.Background(), &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
+
+	_, errRunActivity := c.RunActivity(ctx, &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
 	if errRunActivity != nil {
 		// TODO check what type of error. possible to see if it's an rpc error?
 		fmt.Println("Error Cakework RunActivity")
 
 		fmt.Println(errRunActivity) // TODO log this as an error
 
-		updateReq := UpdateStatusRequest{
-			UserId:    req.UserId,
-			App:       req.App,
-			RequestId: req.RequestId,
-			Status:    "FAILED",
-		}
-
-		jsonReq, err := json.Marshal(updateReq) // TODO handle possible error here
-
-		if err != nil {
-			log.Fatal(err)
-			fmt.Println(err)
-		}
-
-		// 2.
-		client := &http.Client{}
-		u, err := url.Parse(frontendUrl)
-		if err != nil {
-			fmt.Println(err)
-		}
-		u.Path = path.Join(u.Path, "update-status")
-
-		req, err := http.NewRequest(http.MethodPatch, u.String(), bytes.NewBuffer(jsonReq))
-		req.Header.Set("Content-Type", "application/json")
-
-		// check that we have a non-expired access token
-		if isTokenExpired(accessToken) {
-			fmt.Println("Refreshing tokens")
-			accessToken, refreshToken = refreshTokens(refreshToken)
-			if accessToken == "" || refreshToken == "" {
-				panic("Failed to refresh tokens")
-			} else {
-				fmt.Println("Refreshed tokens")
-			}
-		}
-
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		// 4.
-		resp, err := client.Do(req)
-		if err != nil {
-			// log.Fatal(err)
-			fmt.Println(err)
-		} else {
-			fmt.Println("Updated status to FAILED")
-		}
-
-		// 5.
-		defer resp.Body.Close()
-
-		// 6.
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			// log.Fatal(err)
-			fmt.Println(err)
-		}
-		log.Println(string(body))
+		frontendClient.UpdateStatus(req.UserId, req.App, req.RequestId, "FAILED")
 
 		// TODO: need to log the error to a database so that the user can see if when they're querying for the status (and result?)
 		return errRunActivity

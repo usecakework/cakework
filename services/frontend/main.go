@@ -186,6 +186,8 @@ func main() {
 		apiKeyProtectedGroup.GET("/get-result", getResult) // TODO change to GET /request/result/requestId
 		apiKeyProtectedGroup.POST("/submit-task", submitTask)
 		apiKeyProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken) // user never actually invokes this, but our client library needs to
+		apiKeyProtectedGroup.PATCH("/update-status", updateStatus)                                   // TODO change to POST /request/status/requestId
+		apiKeyProtectedGroup.PATCH("/update-result", updateResult)                                   // TODO change to POST /request/result/requestId
 	}
 
 	router.Run()
@@ -456,8 +458,8 @@ func updateMachineId(c *gin.Context) {
 
 	if err := c.BindJSON(&request); err != nil {
 		fmt.Println("got error reading in request")
-		fmt.Println(err)
-		return
+		log.Error(err)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"}) // TODO expose better errors
 	}
 
 	// TODO verify that we aren't overwriting anything
