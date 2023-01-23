@@ -14,7 +14,8 @@ import (
 func getRequestLogs(userId string, appName string, taskName string, machineId string, requestId string) (*types.RequestLogs, error) {
 
 	flyAppName := fly.GetFlyAppName(userId, appName, taskName)
-	searchString := machineId + " " + flyAppName
+
+	searchString := "fulltext:" + machineId + " fulltext:" + flyAppName + " fly.app.instance=" + machineId
 
 	logs, err := getLogs(searchString)
 
