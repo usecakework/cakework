@@ -1,6 +1,8 @@
+# Cakework
 
+Cakework is a purpose-built cloud for serverless async backends. Cakework is great for operations that take time or more compute such as file processing or machine learning. 
 
-# Set up your own stack
+# Self hosting
 
 1. Set up a MySQL DB with the following [schema](db/schema.prisma).
 
@@ -21,12 +23,11 @@ nats-server -js
 go build -o frontend
 export STAGE=dev && ./frontend
 ```
+You should now be able to hit the frontend and start tasks, etc.
 
 4. Run the poller.
-Wireguard into your Fly account.
+Wireguard into your Fly account by following the instructions [here](https://fly.io/docs/reference/private-networking/).
 
-
-You should now be able to hit the frontend and start tasks, etc.
 ```
 go build -o poller
 export STAGE=dev && ./poller

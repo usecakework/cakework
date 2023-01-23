@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -11,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"time"
 
@@ -18,9 +20,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/usecakework/cakework/lib/auth"
 	flyUtil "github.com/usecakework/cakework/lib/fly"
 	flyApi "github.com/usecakework/cakework/lib/fly/api"
+	cwHttp "github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/types"
 	pb "github.com/usecakework/cakework/poller/proto/cakework"
 	"google.golang.org/grpc"
@@ -85,6 +89,7 @@ func main() {
 		}
 	} else {
 		viper.SetConfigType("env")
+		viper.AutomaticEnv()
 	}
 
 	var nc *nats.Conn
@@ -95,7 +100,7 @@ func main() {
 	flyMachineUrl = viper.GetString("FLY_MACHINES_URL")
 	DSN = viper.GetString("DB_CONN_STRING")
 
-	fmt.Println("NATS url: " + natsUrl)
+	fmt.Println("NATS url: " + NATS_CLUSTER)
 	fmt.Println("Frontend url: " + frontendUrl)
 	fmt.Println("Fly Machine url: " + flyMachineUrl)
 
@@ -224,6 +229,27 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 
 	if machineConfig.MachineId == "" {
 		return errors.New("Machine id of spun up machine is null; error occurred somewhere")
+	}
+
+	updateMachineIdReq := types.UpdateMachineId {
+		UserId: req.UserId,
+		App: req.RequestId,
+		RequestId: req.RequestId,
+		MachineId: machineConfig.MachineId,
+	}
+
+	u, err := url.Parse(frontendUrl)
+	if err != nil {
+		fmt.Println(err)
+	}
+	u.Path = path.Join(u.Path, "update-machine-id")
+
+	_, _, err = cwHttp.Call(u.String(), http.MethodPatch, updateMachineIdReq, credentialsProvider)
+	if err != nil {
+		log.Info(err)
+		log.Fatal("Failed to update the request in the db with the machine id")
+	} else {
+		log.Info("Successfully updated machine id in db")
 	}
 
 	// wait for machine to get to started status

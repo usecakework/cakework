@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
@@ -104,6 +103,7 @@ func main() {
 		}
 	} else {
 		viper.SetConfigType("env")
+		viper.AutomaticEnv()
 	}
 
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
@@ -199,12 +199,9 @@ func guidMiddleware() gin.HandlerFunc {
 		uuid := uuid.New()
 		c.Set("uuid", uuid)
 		log.Printf("Request started: %s\n", uuid)
-		reqDump, err := httputil.DumpRequest(c.Request, true) // TODO delete this later!
 		if err != nil {
 			log.Error("Got error while printing request")
 			log.Error(err)
-		} else {
-			log.Info(string(reqDump)) // TODO delete
 		}
 		c.Next()
 		log.Printf("Request finished: %s\n", uuid)
@@ -247,6 +244,7 @@ func submitTask(c *gin.Context) {
 
 	// enqueue this message
 	if createRequest(req) != nil { // TODO check whether this is an err; if so, return different status code
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 	} else {
 		c.IndentedJSON(http.StatusCreated, req)
@@ -336,6 +334,7 @@ func getStatus(c *gin.Context) {
 			fmt.Println("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetStatusRequest.RequestId + " not found"})
 		} else {
+			log.Error(err)
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		}
 	} else {
@@ -361,6 +360,7 @@ func getResult(c *gin.Context) {
 			fmt.Println("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RequestId + " not found"})
 		} else {
+			log.Error(err)
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		}
 	} else {
@@ -403,6 +403,7 @@ func updateStatus(c *gin.Context) {
 		c.Status(http.StatusNotFound)
 	} else {
 		if err != nil {
+			log.Error(err)
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
@@ -442,6 +443,7 @@ func updateResult(c *gin.Context) {
 		c.Status(http.StatusNotFound)
 	} else {
 		if err != nil {
+			log.Error(err)
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
@@ -482,6 +484,7 @@ func updateMachineId(c *gin.Context) {
 		c.Status(http.StatusNotFound)
 	} else {
 		if err != nil {
+			log.Error(err)
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
@@ -573,11 +576,12 @@ func createClientToken(c *gin.Context) {
 	query := "INSERT INTO `ClientToken` (`id`, `name`, `token`, `userId`, `updatedAt`) VALUES (?, ?, ?, ?, ?)"
 	insertResult, err := db.ExecContext(context.Background(), query, tokenId, newRequest.Name, token, newRequest.UserId, updatedAt)
 	if err != nil {
-		fmt.Printf("impossible to insert : %s", err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
@@ -600,8 +604,7 @@ func createUser(c *gin.Context) {
 	var newRequest types.CreateUserRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
 
@@ -617,7 +620,7 @@ func createUser(c *gin.Context) {
 	query := "INSERT INTO `User` (`id`) VALUES (?)"
 	insertResult, err := db.ExecContext(context.Background(), query, newUser.Id)
 	if err != nil {
-		fmt.Printf("impossible to insert : %s", err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
 	_, err = insertResult.LastInsertId()
@@ -679,6 +682,7 @@ func getUser(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user with id not found"})
 		} else {
+			log.Error(err)
 			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 		}
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
@@ -711,8 +715,7 @@ func createMachine(c *gin.Context) {
 	var req types.CreateMachineRequest
 
 	if err := c.BindJSON(&req); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
 
@@ -728,13 +731,13 @@ func createMachine(c *gin.Context) {
 	query := "INSERT INTO `FlyMachine` (`userId`, `project`, `task`, `flyApp`, `name`, `machineId`, `state`, `image`, `source`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	insertResult, err := db.ExecContext(context.Background(), query, userId, project, task, flyApp, req.Name, req.MachineId, req.State, req.Image, req.Source)
 	if err != nil {
-		log.Printf("impossible to insert : %s", err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
+		log.Error(err)
 		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
-		log.Error("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
 		log.Info("Successfully inserted")
 		c.IndentedJSON(http.StatusCreated, req)
