@@ -23,6 +23,7 @@ import os
 import threading
 import requests
 import logging
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,12 +35,13 @@ def get_token(context):
 
 class Cakework(cakework_pb2_grpc.CakeworkServicer):
     def __init__(self, user_activity, local=False):
+        load_dotenv()
         self.user_activity = user_activity
         self.local = local
         if self.local:
             self.frontend_url = "http://localhost:8080"
         else:
-            self.frontend_url = "https://cakework-frontend.fly.dev"
+            self.frontend_url = os.getenv("FRONTEND_URL")
 
     def RunActivity(self, request, context):
         token = get_token(context)
