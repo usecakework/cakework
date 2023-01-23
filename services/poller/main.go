@@ -37,6 +37,7 @@ type UpdateStatusRequest struct {
 	App	string `json:"app"`
     RequestId  string  `json:"requestId"`
 	Status  string  `json:"status"`
+	MachineId string `json:"machineId"`
 }
 
 var local bool

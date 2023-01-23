@@ -153,6 +153,8 @@ func main() {
 		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, jwtTokenMiddleware("get:task_status"))                                  // the scope is incorrectly named. TODO fix
 		jwtProtectedGroup.GET("/request/logs", handleGetRequestLogs)
 		jwtProtectedGroup.POST("/create-machine", createMachine, jwtTokenMiddleware("create:machine"))
+		jwtProtectedGroup.PATCH("/update-machine-id", updateMachineId, jwtTokenMiddleware("update:machine_id"))                                   // TODO change to POST /request/status/requestId
+
 		// TODO have an add-task
 	}
 
@@ -356,6 +358,8 @@ func getResult(c *gin.Context) {
 	}
 }
 
+
+
 func updateStatus(c *gin.Context) {
 	var request types.UpdateStatusRequest
 
@@ -416,6 +420,46 @@ func updateResult(c *gin.Context) {
 	checkErr(err)
 
 	res, e := stmt.Exec(request.Result, request.RequestId)
+	checkErr(e)
+
+	a, e := res.RowsAffected()
+	checkErr(e)
+	fmt.Printf("Updated %d rows", a)
+	if a == 0 {
+		// nothing was updated; row not found most likely (though can be due to some other error)
+		fmt.Println("nothing was updated")
+		c.Status(http.StatusNotFound)
+	} else {
+		if err != nil {
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		} else {
+			c.Status(http.StatusOK)
+		}
+	}
+}
+
+// right now just updating the TaskRun table; eventually migrate to Request table
+func updateMachineId(c *gin.Context) {
+	var request types.UpdateMachineId
+
+	if err := c.BindJSON(&request); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+		return
+	}
+
+	// TODO verify that we aren't overwriting anything
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+
+	// sanitize; convert app and task name to lower case, only hyphens
+	// userId := strings.Replace(strings.ToLower(request.UserId), "_", "-", -1)
+	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
+
+	// TODO use the userId and app
+	stmt, err := db.Prepare("UPDATE TaskRun SET machineId = ? WHERE requestId = ?")
+	checkErr(err)
+
+	res, e := stmt.Exec(request.MachineId, request.RequestId)
 	checkErr(e)
 
 	a, e := res.RowsAffected()

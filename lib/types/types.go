@@ -12,6 +12,7 @@ type Request struct {
 	Result     string `json:"result"`
 	CPU        int `json:"cpu"`
 	MemoryMB   int `json:"memory"`
+	MachineId  string `json:"machineId"`
 	CreatedAt  int64  `json:"created_at"`
 	UpdatedAt  int64  `json:"updated_at"`
 }
@@ -105,6 +106,14 @@ type GetResultRequest struct {
 // Q: how will errors be handled? TODO need to expose an error field?
 type GetResultResponse struct {
 	Result string `json:"result"`
+}
+
+// this currently updates the TaskRun table
+type UpdateMachineId struct {
+	UserId    string `json:"userId"`
+	App       string `json:"app"`
+	RequestId string `json:"requestId"`
+	MachineId string `json:"machineId"`
 }
 
 type UpdateStatusRequest struct {
