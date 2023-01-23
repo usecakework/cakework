@@ -196,6 +196,7 @@ func authMiddleware() gin.HandlerFunc {
 
 // TODO have this throw error?
 func submitTask(c *gin.Context) {
+	// TODO check if app exists; if not, throw an error
 	var req types.Request
 
 	if err := c.BindJSON(&req); err != nil {
