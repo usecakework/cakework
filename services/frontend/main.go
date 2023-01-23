@@ -82,6 +82,7 @@ var stage string
 var envFile []byte
 
 // this isn't really needed, but vscode auto removes the import for embed if it's not referenced
+//
 //go:embed fly.toml
 var flyConfig embed.FS
 
@@ -96,11 +97,11 @@ func main() {
 	if stage == "dev" {
 		viper.SetConfigType("dotenv")
 		err := viper.ReadConfig(bytes.NewBuffer(envFile))
-	
+
 		if err != nil {
 			fmt.Println(fmt.Errorf("%w", err))
 			os.Exit(1)
-		}	
+		}
 	} else {
 		viper.SetConfigType("env")
 	}
@@ -111,14 +112,10 @@ func main() {
 	local = *localPtr
 
 	var nc *nats.Conn
-	if local == true {
-		nc, _ = nats.Connect(nats.DefaultURL)
-		fmt.Println("Local mode; connected to nats cluster: " + nats.DefaultURL)
-	} else {
-		NATS_CLUSTER := viper.GetString("NATS_CLUSTER")
-		nc, _ = nats.Connect(NATS_CLUSTER)
-		fmt.Println("Non-local mode; connected to nats cluster: " + NATS_CLUSTER)
-	}
+
+	NATS_CLUSTER := viper.GetString("NATS_CLUSTER")
+	nc, _ = nats.Connect(NATS_CLUSTER)
+	fmt.Println("Non-local mode; connected to nats cluster: " + NATS_CLUSTER)
 
 	// Creates JetStreamContext
 	js, err = nc.JetStream()
