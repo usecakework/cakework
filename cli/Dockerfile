@@ -7,4 +7,4 @@ COPY requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
 COPY . /app
 EXPOSE 50051
-CMD ["python3", "/app/src/main.py"]
+CMD ["python3", "-u", "/app/src/main.py"]
