@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -41,6 +42,9 @@ var dockerfile embed.FS
 //go:embed fly.toml
 var flyConfig embed.FS
 
+//go:embed .env
+var envFile []byte
+
 // TODO put stuff into templates for different languages
 
 //go:embed .gitignore_python
@@ -49,27 +53,29 @@ var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
 
-<<<<<<< HEAD
-=======
-// var FRONTEND_URL = "https://cakework-frontend.fly.dev"
-
-var FRONTEND_URL = "http://localhost:8080" // local testing TODO delete
-
->>>>>>> 66d919d (stop fly machine when task completes)
 func main() {
 	var appName string
 	var language string
 	var appDirectory string
 
 	workingDirectory, _ := os.Getwd()
-	// buildDirectory := filepath.Join(workingDirectory, "build") // TODO figure out how to obfuscate all build files
 	buildDirectory := workingDirectory
 	dirname, _ := os.UserHomeDir()
 	cakeworkDirectory := dirname + "/.cakework"
 
+
+	viper.SetConfigType("env")
+	err := viper.ReadConfig(bytes.NewBuffer(envFile))
+
+	if err != nil {
+		fmt.Println(fmt.Errorf("%w", err))
+		os.Exit(1)
+	}
+
+
 	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
 	FLY_ORG := viper.GetString("FLY_ORG")
-	fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG) //TODO extract secrets and rotate
+	fly := fly.New(dirname + "/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
 
 	log.Debug("appName: " + appName)
 	log.Debug("language: " + language)
@@ -88,9 +94,6 @@ func main() {
 	cwConfig.UpdateConfig(*config, configFile)
 
 	credsProvider = auth.BearerCredentialsProvider{ConfigFile: configFile}
-
-	viper.SetConfigFile(".env")
-	viper.ReadInConfig()
 
 	FRONTEND_URL := viper.GetString("FRONTEND_URL")
 
@@ -380,7 +383,8 @@ if __name__ == "__main__":
 					fmt.Println("Deploying Your Project...")
 					readFile, err := os.Open(filepath.Join(filepath.Join(workingDirectory, "src"), "main.py"))
 					if err != nil {
-						return fmt.Errorf("There was an error deploying your project")
+						fmt.Println(err)
+						return fmt.Errorf("There was an error deploying your project. Please make sure you're in the project directory")
 					}
 
 					fileScanner := bufio.NewScanner(readFile)
@@ -472,9 +476,6 @@ if __name__ == "__main__":
 					// update the fly.toml file
 					flyConfig := filepath.Join(buildDirectory, "fly.toml")
 					input, err := os.ReadFile(flyConfig)
-					if err != nil {
-						return fmt.Errorf("Failed to read from fly config. %w", err)
-					}
 
 					lines := strings.Split(string(input), "\n")
 
@@ -493,8 +494,8 @@ if __name__ == "__main__":
 					// TODO remove access token from source code and re-create github repo
 
 					// TODO move these parameters to env variables
-					if _, err := fly.CreateApp(flyAppName, buildDirectory); err != nil {
-						return errors.New("Failed to create Fly app")
+					if out, err := fly.CreateApp(flyAppName, buildDirectory); err != nil {
+						return errors.New("Failed to create Fly app\n" + out)
 					}
 
 					// TODO if ips have previously been allocated, skip this step
@@ -523,8 +524,7 @@ if __name__ == "__main__":
 					name := uuid.New().String() // generate a random string for the name
 					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image, "CLI")
 					if err != nil {
-						fmt.Println(err)
-						return errors.New("Failed to store deployed task in database")
+						return errors.New("Failed to store deployed task in database\n" + fmt.Sprint(err))
 					}
 
 					out, err = fly.NewMachine(flyAppName, buildDirectory)
@@ -841,7 +841,7 @@ func signUpOrLogin() error {
 	// if exists already and a user is found, can skip the log in
 
 	// request device code
-	// TODO: instead of logging into the cli, we should be logging into/getting credentials for the api?
+
 	AUTH0_DEVICE_CODE_URL := viper.GetString("AUTH0_DEVICE_CODE_URL")
 
 	// if using the creds to call an api, need to use the API's Identifier as the audience

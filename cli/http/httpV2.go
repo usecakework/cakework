@@ -72,6 +72,7 @@ func CallHttpAuthedV2(req *http.Request, provider auth.CredentialsProvider) (*ht
 // takes *http.Request, does not perform auth
 // not really ideal, remember to close when you use this
 func CallHttpV2(req *http.Request) (*http.Response, error) {
+	fmt.Println(PrettyPrintRequest(req)) // TODO delete
 	client := http.Client {
 		Timeout: time.Second * 60,
 	}
@@ -82,5 +83,6 @@ func CallHttpV2(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	
+	fmt.Println(PrettyPrintResponse(res)) // TODO delete
 	return res, nil
 }
