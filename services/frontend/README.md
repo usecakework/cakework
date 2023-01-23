@@ -14,3 +14,6 @@ sample postman request to start-task:
     "parameters": "[\"jessie\"]"
 }
 localhost:8080/start-task
+
+go build -o frontend
+export STAGE=dev && ./frontend

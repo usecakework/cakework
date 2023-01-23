@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -11,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -73,9 +76,34 @@ var customClaims = func() validator.CustomClaims {
 	return &CustomClaimsExample{}
 }
 
+var stage string
+
+//go:embed .env
+var envFile []byte
+
+// this isn't really needed, but vscode auto removes the import for embed if it's not referenced
+//go:embed fly.toml
+var flyConfig embed.FS
+
 func main() {
-	viper.SetConfigFile(".env")
-	viper.ReadInConfig()
+	stage := os.Getenv("STAGE")
+	if stage == "" {
+		log.Fatal("Failed to get stage from environment variable")
+	} else {
+		log.Info("Got stage: " + stage)
+	}
+
+	if stage == "dev" {
+		viper.SetConfigType("dotenv")
+		err := viper.ReadConfig(bytes.NewBuffer(envFile))
+	
+		if err != nil {
+			fmt.Println(fmt.Errorf("%w", err))
+			os.Exit(1)
+		}	
+	} else {
+		viper.SetConfigType("env")
+	}
 
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	flag.Parse()

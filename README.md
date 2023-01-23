@@ -16,7 +16,10 @@
 ```
 nats-server -js
 ```
-3. Run the frontend. From the ```/frontend``` dir:
+3. Run the frontend. Create a .env file with your secrets. From the ```/frontend``` dir:
+```
+go build -o frontend
+export STAGE=dev && ./frontend
 ```
 
 4. Run the poller.
@@ -24,3 +27,7 @@ Wireguard into your Fly account.
 
 
 You should now be able to hit the frontend and start tasks, etc.
+```
+go build -o poller
+export STAGE=dev && ./poller
+```
