@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -23,15 +24,16 @@ func Call(url string, method string, reqStruct interface{}, provider auth.Creden
 	}
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonReq))
-	reqDump, _ := httputil.DumpRequestOut(req, true)
+	// reqDump, _ := httputil.DumpRequestOut(req, true) // can't always dump out the request if it's null? 
 
-	log.Debug(string(reqDump))
+	// fmt.Println(string(reqDump)) //TODO delete
 
 	if err != nil {
 		return nil, nil, err
 	}
 
 	creds, err := provider.GetCredentials()
+
 	if err != nil {
 		fmt.Println("Failed to get credentials")
 		fmt.Println(err)
@@ -83,26 +85,32 @@ func CallHttp(req *http.Request) (bodyMap map[string]interface{}, res *http.Resp
 		return nil, nil, err
 	}
 
-	log.Debug(string(reqDump))
+	fmt.Println(string(reqDump)) // TODO delete
 	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer res.Body.Close()
 
-	resDump, err := httputil.DumpResponse(res, true)
+	// resDump, err := httputil.DumpResponse(res, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Debug(string(resDump))
+	// log.Debug(string(resDump))
 
 	body, err := ioutil.ReadAll(res.Body)
 
-	if err := json.Unmarshal([]byte(string(body)), &bodyMap); err != nil {
-		return nil, nil, err
-	}
 
-	return
+	err = json.NewDecoder(res.Body).Decode(&bodyMap)
+	if err == io.EOF {
+		return nil, res, nil
+	} else {
+		if err := json.Unmarshal([]byte(string(body)), &bodyMap); err != nil {
+			return nil, nil, err
+		} else {
+			return bodyMap, res, nil
+		}
+	}
 }
 
 func PrettyPrint(i interface{}) string {
@@ -119,3 +127,4 @@ func PrettyPrintResponse(res *http.Response) string {
 	reqDump, _ := httputil.DumpResponse(res, true)
 	return string(reqDump)
 }
+

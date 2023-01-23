@@ -207,3 +207,51 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 		}, err
 	}
 }
+
+func (client *Client) UpdateStatus(userId string, app string, requestId string, status string) error {
+	url := client.Url + "/update-status"
+	req := types.UpdateStatusRequest{
+		UserId:    userId,
+		App: app,
+		RequestId: requestId,
+		Status: status,
+	}
+
+	_, res, err := http.Call(url, "PATCH", req, client.CredentialsProvider)
+	if err != nil {
+		fmt.Println(res) // TODO should be logging instead
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == 200 || res.StatusCode == 201 {
+		return nil
+	} else {
+		return errors.New("Error getting request status from server. " + res.Status)
+	}
+}
+
+func (client *Client) UpdateMachineId(userId string, app string, requestId string, machineId string) error {
+	url := client.Url + "/update-machine-id"
+	req := types.UpdateMachineId{
+		UserId:    userId,
+		App: app,
+		RequestId: requestId,
+		MachineId: machineId,
+	}
+
+	fmt.Println("about to call frontend to update machine id") // TODO delete
+	_, res, err := http.Call(url, "PATCH", req, client.CredentialsProvider)
+	if err != nil {
+		fmt.Println("Got error calling frontend to update machine id")
+		fmt.Println(res) // TODO should be logging instead. most likely this is nil
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == 200 || res.StatusCode == 201 {
+		return nil
+	} else {
+		return errors.New("Error getting request status from server. " + res.Status)
+	}
+}
