@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
 
+	flyTypes "github.com/usecakework/cakework/lib/fly"
 	"github.com/usecakework/cakework/lib/shell"
 )
 
@@ -38,6 +41,7 @@ func (fly *Fly) CreateApp(appName string, directory string) (string, error) {
 	return out, nil
 }
 
+// TODO make it so that we don't allocate a new ipv4 for every deploy
 func (fly *Fly) AllocateIpv4(appName string, directory string) (string, error) {
 	cmd := exec.Command(fly.BinaryPath, "ips", "allocate-v4", "--app", appName, "-t", fly.AccessToken)
 	return shell.RunCmd(cmd, directory)
@@ -46,7 +50,37 @@ func (fly *Fly) AllocateIpv4(appName string, directory string) (string, error) {
 // spins up a new machine
 // this is just to trigger a deployment on fly's backend so that they build an image in their repo for us
 func (fly *Fly) NewMachine(appName string, directory string) (string, error) {
-	cmd := exec.Command(fly.BinaryPath, "m", "run", ".", "-a", appName, "-t", fly.AccessToken)
+		// since name not specified, fly will create a new name automatically
+	// pick the smallest instance type
+	config := flyTypes.MachineConfig {
+		Config: flyTypes.Config{
+			Guest: flyTypes.Guest{
+				CPUKind:  "shared",
+				CPUs:     1,
+				MemoryMB: 256,
+			},
+			Restart : flyTypes.Restart {
+				Policy: "no",
+			},
+		},
+	}
+
+	bytes, err := json.Marshal(config)
+    if err != nil {
+        return "", err
+    }
+
+	configStr := string(bytes)
+
+	// TODO delete below
+	fmt.Println("config string")
+	fmt.Println(configStr)
+
+	// blah2 := "{\"config\":{\"guest\":{\"cpu_kind\":\"shared\",\"cpus\":1,\"memory_mb\":256},\"restart\":{\"policy\":\"no\"}}}"
+	// blah := `{"config":{"guest":{"cpu_kind":"shared","cpus":1,"memory_mb":256},"restart":{"policy":"no"}}} -a 105349741723321386951-fly-machines-4-say-hello -t QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo`
+	cmd := exec.Command("fly", "m", "run", ".", "-a", appName, "-t", fly.AccessToken, "-c", configStr)// configStr)// string(bytes))
+	fmt.Println()
+	fmt.Println(cmd.String()) // TODO delete
 	return shell.RunCmd(cmd, directory)
 }
 

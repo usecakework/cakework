@@ -504,6 +504,9 @@ if __name__ == "__main__":
 					}
 
 					// otherwise, create new machine
+					// TODO if new machine tried to start and was stopped because the code had an errr, don't wait until timeout (60 seconds)
+					// TODO fail the command if the machine was stopped
+					// TODO debug why not able to set restart policy. still seeing "machine did not have a restart policy, defaulting to restart" shows success
 					out, err := fly.NewMachine(flyAppName, buildDirectory)
 					if err != nil {
 						return errors.New("Failed to deploy app to Fly machine")
@@ -542,6 +545,7 @@ if __name__ == "__main__":
 						return errors.New("Failed to clean up build artifacts")
 					}
 
+					// TODO: make sure that the machine passes health checks (the grpc server with the task started successfully)
 					fmt.Println("Successfully deployed your tasks! 🍰")
 					return nil
 				},
