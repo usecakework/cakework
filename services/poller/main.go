@@ -27,16 +27,16 @@ import (
 )
 
 const (
-	subSubjectName ="TASKS.created"
-	DEFAULT_CPU = 1
+	subSubjectName    = "TASKS.created"
+	DEFAULT_CPU       = 1
 	DEFAULT_MEMORY_MB = 256
- )
+)
 
 type UpdateStatusRequest struct {
-	UserId     string  `json:"userId"`
-	App	string `json:"app"`
-    RequestId  string  `json:"requestId"`
-	Status  string  `json:"status"`
+	UserId    string `json:"userId"`
+	App       string `json:"app"`
+	RequestId string `json:"requestId"`
+	Status    string `json:"status"`
 	MachineId string `json:"machineId"`
 }
 
@@ -44,26 +44,25 @@ var local bool
 var verbose bool
 var frontendUrl string
 var flyMachineUrl string
+var DSN string
 
 var accessToken, refreshToken string
 var fly *flyApi.Fly
 var credentialsProvider auth.BearerStringCredentialsProvider
 var db *sql.DB
 
-const NATS_URL = "cakework-nats-cluster.internal"
-const DSN = "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true&parseTime=true"
-
 //go:embed .env
 var envFile []byte
 
 // this isn't really needed, but vscode auto removes the import for embed if it's not referenced
+//
 //go:embed fly.toml
 var flyConfig embed.FS
 
 func main() {
-	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally")     // can pass go run main.go -local
 	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
-	
+
 	flag.Parse()
 
 	local = *localPtr
@@ -79,32 +78,22 @@ func main() {
 	if stage == "dev" {
 		viper.SetConfigType("dotenv")
 		err := viper.ReadConfig(bytes.NewBuffer(envFile))
-	
+
 		if err != nil {
 			fmt.Println(fmt.Errorf("%w", err))
 			os.Exit(1)
-		}	
+		}
 	} else {
 		viper.SetConfigType("env")
 	}
 
 	var nc *nats.Conn
 
-	var natsUrl string
-
-	if local == true {
-		natsUrl = nats.DefaultURL
-		nc, _ = nats.Connect(nats.DefaultURL)
-		fmt.Println("Local mode")
-		frontendUrl = "http://localhost:8080"
-		flyMachineUrl = "http://127.0.0.1:4280"
-	} else {
-		natsUrl = NATS_URL
-		nc, _ = nats.Connect("cakework-nats-cluster.internal")
-		fmt.Println("Non-local mode")
-		frontendUrl = "cakework-frontend.fly.dev"
-		flyMachineUrl = "http://_api.internal:4280"
-	}
+	NATS_CLUSTER := viper.GetString("NATS_CLUSTER")
+	nc, _ = nats.Connect(NATS_CLUSTER)
+	frontendUrl = viper.GetString("FRONTEND_URL")
+	flyMachineUrl = viper.GetString("FLY_MACHINES_URL")
+	DSN = viper.GetString("DB_CONN_STRING")
 
 	fmt.Println("NATS url: " + natsUrl)
 	fmt.Println("Frontend url: " + frontendUrl)
@@ -112,41 +101,42 @@ func main() {
 
 	if verbose {
 		log.SetLevel(log.DebugLevel)
-	} else{
+	} else {
 		log.SetLevel(log.InfoLevel)
 	}
 
 	// Creates JetStreamContext
 	js, err := nc.JetStream()
 	checkErr(err)
-   
+
 	// Create Pull based consumer with maximum 128 inflight.
-   // PullMaxWaiting defines the max inflight pull requests.
-   	go poll(js)
-   	gin.SetMode(gin.ReleaseMode)
-   	router := gin.Default()
+	// PullMaxWaiting defines the max inflight pull requests.
+	go poll(js)
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
 
-   	accessToken, refreshToken = getToken()
-   	credentialsProvider = auth.BearerStringCredentialsProvider{ Token: "QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo" } // TODO remove this and rotate
+	accessToken, refreshToken = getToken()
+	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
+	credentialsProvider = auth.BearerStringCredentialsProvider{Token: FLY_ACCESS_TOKEN}
 
-   	fly = flyApi.New("sahale", flyMachineUrl, credentialsProvider) // TODO remove this secret for public launch
-   
-   	db, err = sql.Open("mysql", DSN)
-   	if err != nil {
+	fly = flyApi.New("sahale", flyMachineUrl, credentialsProvider) // TODO remove this secret for public launch
+
+	db, err = sql.Open("mysql", DSN)
+	if err != nil {
 		log.Error("Failed to open database connection")
 		log.Error(err)
-   	}
-   	db.SetConnMaxLifetime(time.Minute * 3)
-   	db.SetMaxOpenConns(100)
-   	db.SetMaxIdleConns(10)
+	}
+	db.SetConnMaxLifetime(time.Minute * 3)
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(10)
 
-   	defer db.Close()
+	defer db.Close()
 
-   	if err != nil {
+	if err != nil {
 		log.Error("Failed to initialize database connection")
-	   	log.Error(err)
-   	}  
-   	router.Run(":8081")
+		log.Error(err)
+	}
+	router.Run(":8081")
 }
 
 func poll(js nats.JetStreamContext) {
@@ -154,17 +144,17 @@ func poll(js nats.JetStreamContext) {
 		// Q: should we be creating a new pullsubscribe each time?
 		sub, _ := js.PullSubscribe(subSubjectName, "submitted-tasks", nats.PullMaxWaiting(128))
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	 
-	    defer cancel()
 
-    	msgs, _ := sub.Fetch(10, nats.Context(ctx))
-      	for _, msg := range msgs {
+		defer cancel()
+
+		msgs, _ := sub.Fetch(10, nats.Context(ctx))
+		for _, msg := range msgs {
 			msg.Ack()
 			var req types.Request
 			err := json.Unmarshal(msg.Data, &req)
 
 			log.Infof("Got request: " + req.UserId + ", " + req.App + ", " + req.Task + ", " + req.RequestId)
-			
+
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -173,7 +163,7 @@ func poll(js nats.JetStreamContext) {
 				log.Error(err)
 			}
 		}
-   }
+	}
 }
 
 func checkErr(err error) {
@@ -184,12 +174,12 @@ func checkErr(err error) {
 
 // reviewOrder reviews the order and publishes ORDERS.approved event
 func runTask(js nats.JetStreamContext, req types.Request) error {
-	flyApp := flyUtil.GetFlyAppName(req.UserId, req.App, req.Task)	
+	flyApp := flyUtil.GetFlyAppName(req.UserId, req.App, req.Task)
 
 	image, err := GetLatestImage(flyApp, db)
 	if err != nil {
 		log.Error("Failed to get latest image to deploy")
-		return err 
+		return err
 	}
 
 	// spin up a new fly machine
@@ -198,10 +188,10 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 	// query for the latest created FlyMachine triggered by the cli and get the image from it
 	// we don't update machines, we just spin up and spin down
 	// use the image to spin up a new machine
-	// once the spin up succeeds, parse the response to get the machine id 
+	// once the spin up succeeds, parse the response to get the machine id
 	// submit request to the machine
 
-	// in cli: 
+	// in cli:
 	// spin up a new fly machine with source=CLI
 	// insert into FlyMachine table via call to the frontend
 
@@ -245,7 +235,7 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		// TODO also fetch and print out current state, for debugging
 	}
 
-	// TODO get response so we know what machine id to persist in frontend, as well as the machine id to invoke 
+	// TODO get response so we know what machine id to persist in frontend, as well as the machine id to invoke
 	// TODO insert into the FlyMachine table for tracking. For now, don't need to bother
 
 	var conn *grpc.ClientConn
@@ -260,7 +250,7 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 	}
 
 	log.Info("Attempting to send request to machine endpoint: " + endpoint)
-    conn, err = grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool? 
+	conn, err = grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool?
 
 	if err != nil {
 		fmt.Printf("did not connect: %s", err)
@@ -270,37 +260,39 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 	defer conn.Close()
 
 	c := pb.NewCakeworkClient(conn)
-	createReq := pb.Request{ Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId }
-	_, errRunActivity := c.RunActivity(context.Background(), &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!! 
+	createReq := pb.Request{Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId}
+	_, errRunActivity := c.RunActivity(context.Background(), &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
 	if errRunActivity != nil {
 		// TODO check what type of error. possible to see if it's an rpc error?
 		fmt.Println("Error Cakework RunActivity")
 
 		fmt.Println(errRunActivity) // TODO log this as an error
 
-		updateReq := UpdateStatusRequest {
-			UserId: req.UserId,
-			App: req.App,
+		updateReq := UpdateStatusRequest{
+			UserId:    req.UserId,
+			App:       req.App,
 			RequestId: req.RequestId,
-			Status: "FAILED",
+			Status:    "FAILED",
 		}
 
-		jsonReq, err := json.Marshal(updateReq) // TODO handle possible error here 
+		jsonReq, err := json.Marshal(updateReq) // TODO handle possible error here
 
 		if err != nil {
 			log.Fatal(err)
 			fmt.Println(err)
 		}
-	
+
 		// 2.
 		client := &http.Client{}
 		u, err := url.Parse(frontendUrl)
-		if err != nil { fmt.Println(err) }
+		if err != nil {
+			fmt.Println(err)
+		}
 		u.Path = path.Join(u.Path, "update-status")
 
 		req, err := http.NewRequest(http.MethodPatch, u.String(), bytes.NewBuffer(jsonReq))
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		// check that we have a non-expired access token
 		if isTokenExpired(accessToken) {
 			fmt.Println("Refreshing tokens")
@@ -312,11 +304,11 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 			}
 		}
 
-		req.Header.Set("Authorization", "Bearer " + accessToken)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
 		if err != nil {
 			fmt.Println(err)
 		}
-	
+
 		// 4.
 		resp, err := client.Do(req)
 		if err != nil {
@@ -325,10 +317,10 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		} else {
 			fmt.Println("Updated status to FAILED")
 		}
-	
+
 		// 5.
 		defer resp.Body.Close()
-	
+
 		// 6.
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -336,11 +328,10 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 			fmt.Println(err)
 		}
 		log.Println(string(body))
-	
 
 		// TODO: need to log the error to a database so that the user can see if when they're querying for the status (and result?)
 		return errRunActivity
-		// instead of restarting the error by throwing a fatal, just do something with this. 
+		// instead of restarting the error by throwing a fatal, just do something with this.
 		// set the status to failed?
 		// TODO need to be able to hook into frontend service to update the status
 
@@ -357,4 +348,4 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		// TODO: if fail, do not ack the request? but if we do so will the request get processed over and over again?
 	}
 	return nil
- }
+}
