@@ -89,7 +89,7 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 	}
 
 	// TODO delete
-	fmt.Printf("%+v\n", req)
+	// fmt.Printf("%+v\n", req)
 
 	res, err := http.CallV2(url, "POST", req, fly.CredentialsProvider)
 	if err != nil {

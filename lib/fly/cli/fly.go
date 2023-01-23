@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -72,15 +71,7 @@ func (fly *Fly) NewMachine(appName string, directory string) (string, error) {
 
 	configStr := string(bytes)
 
-	// TODO delete below
-	fmt.Println("config string")
-	fmt.Println(configStr)
-
-	// blah2 := "{\"config\":{\"guest\":{\"cpu_kind\":\"shared\",\"cpus\":1,\"memory_mb\":256},\"restart\":{\"policy\":\"no\"}}}"
-	// blah := `{"config":{"guest":{"cpu_kind":"shared","cpus":1,"memory_mb":256},"restart":{"policy":"no"}}} -a 105349741723321386951-fly-machines-4-say-hello -t QCMUb_9WFgHAZkjd3lb6b1BjVV3eDtmBkeEgYF8Mrzo`
-	cmd := exec.Command("fly", "m", "run", ".", "-a", appName, "-t", fly.AccessToken, "-c", configStr)// configStr)// string(bytes))
-	fmt.Println()
-	fmt.Println(cmd.String()) // TODO delete
+	cmd := exec.Command(fly.BinaryPath, "m", "run", ".", "-a", appName, "-t", fly.AccessToken, "-c", configStr)
 	return shell.RunCmd(cmd, directory)
 }
 

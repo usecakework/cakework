@@ -35,9 +35,10 @@ func getRequestDetails(db *sql.DB, requestId string) (*types.Request, error) {
 	// TODO use the userId and app
 	var request types.Request
 	var result sql.NullString
+	var machineId sql.NullString
 	var createdAt time.Time
 	var updatedAt time.Time
-	err := db.QueryRow("SELECT userId, app, task, parameters, requestId, machineId, status, result, createdAt, updatedAt FROM TaskRun where requestId = ?", requestId).Scan(&request.UserId, &request.App, &request.Task, &request.Parameters, &request.RequestId, &request.MachineId, &request.Status, &result, &createdAt, &updatedAt)
+	err := db.QueryRow("SELECT userId, app, task, parameters, requestId, machineId, status, result, createdAt, updatedAt FROM TaskRun where requestId = ?", requestId).Scan(&request.UserId, &request.App, &request.Task, &request.Parameters, &request.RequestId, &machineId, &request.Status, &result, &createdAt, &updatedAt)
 	if err != nil {
 		if err.Error() == sql.ErrNoRows.Error() {
 			return nil, nil
@@ -50,6 +51,11 @@ func getRequestDetails(db *sql.DB, requestId string) (*types.Request, error) {
 	if result.Valid {
 		request.Result = result.String
 	}
+
+	if machineId.Valid {
+		request.MachineId = machineId.String
+	}
+
 	request.CreatedAt = createdAt.Unix()
 	request.UpdatedAt = updatedAt.Unix()
 

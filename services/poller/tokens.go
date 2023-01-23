@@ -7,6 +7,7 @@ import (
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/golang-jwt/jwt/v4"
+	cwHttp "github.com/usecakework/cakework/lib/http"
 )
 
 var (
@@ -52,9 +53,9 @@ func isTokenExpired(token string) bool {
 
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-	stringBody, data, res := callHttp(req) // should this raise an error? 
+	data, res, _ := cwHttp.CallHttp(req) // TODO handle the err here
 
-	if (res.StatusCode == 200 || res.StatusCode == 201) && strings.Contains(stringBody, "access_token") {
+	if (res.StatusCode == 200 || res.StatusCode == 201) {
 		accessToken := data["access_token"].(string)
 		refreshToken := data["refresh_token"].(string)
 		return accessToken, refreshToken
@@ -70,9 +71,9 @@ func refreshTokens(refreshToken string) (string, string) {
 
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-	stringBody, data, res := callHttp(req) // should this raise an error? 
+	data, res, _ := cwHttp.CallHttp(req) // TODO handle the error here 
 
-	if (res.StatusCode == 200 || res.StatusCode == 201) && strings.Contains(stringBody, "access_token") {
+	if (res.StatusCode == 200 || res.StatusCode == 201) {
 		accessToken := data["access_token"].(string)
 		refreshToken := data["refresh_token"].(string)
 		return accessToken, refreshToken

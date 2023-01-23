@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/usecakework/cakework/lib/fly/api"
@@ -15,8 +14,6 @@ func GetLatestImage(flyApp string, db *sql.DB) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	fmt.Println(config) // TODO delete
 
 	if config.Config.Image != "" {
 		return config.Config.Image, nil
