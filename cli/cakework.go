@@ -63,7 +63,6 @@ func main() {
 	dirname, _ := os.UserHomeDir()
 	cakeworkDirectory := dirname + "/.cakework"
 
-
 	viper.SetConfigType("env")
 	err := viper.ReadConfig(bytes.NewBuffer(envFile))
 
@@ -72,10 +71,9 @@ func main() {
 		os.Exit(1)
 	}
 
-
 	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
 	FLY_ORG := viper.GetString("FLY_ORG")
-	fly := fly.New(dirname + "/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
+	fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
 
 	log.Debug("appName: " + appName)
 	log.Debug("language: " + language)
@@ -694,16 +692,18 @@ if __name__ == "__main__":
 								return nil
 							}
 
-							t := table.NewWriter()
-							t.SetOutputMirror(os.Stdout)
+							// t := table.NewWriter()
+							// t.Style().Options.DrawBorder = false
+							// t.SetOutputMirror(os.Stdout)
 							for _, line := range requestLogs.LogLines {
-								t.AppendRow([]interface{}{
-									line.Timestamp,
-									line.LogLevel,
-									line.Message,
-								})
+								fmt.Println(line.Timestamp + "  " + line.LogLevel + "  " + line.Message)
+								// t.AppendRow([]interface{}{
+								// 	line.Timestamp,
+								// 	line.LogLevel,
+								// 	line.Message,
+								// })
 							}
-							t.Render()
+							// t.Render()
 
 							return nil
 						},

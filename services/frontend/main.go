@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -77,9 +76,6 @@ var customClaims = func() validator.CustomClaims {
 
 var stage string
 
-//go:embed .env
-var envFile []byte
-
 // this isn't really needed, but vscode auto removes the import for embed if it's not referenced
 //
 //go:embed fly.toml
@@ -95,7 +91,8 @@ func main() {
 
 	if stage == "dev" {
 		viper.SetConfigType("dotenv")
-		err := viper.ReadConfig(bytes.NewBuffer(envFile))
+		viper.SetConfigFile(".env")
+		err := viper.ReadInConfig()
 
 		if err != nil {
 			fmt.Println(fmt.Errorf("%w", err))
@@ -252,6 +249,7 @@ func submitTask(c *gin.Context) {
 }
 
 func handleGetRequestLogs(c *gin.Context) {
+
 	// get app name and task name from the request id
 	var newGetRequestLogsRequest types.GetRequestLogsRequest
 

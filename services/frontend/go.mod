@@ -55,4 +55,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/usecakework/cakework/lib => ./build/lib
+replace github.com/usecakework/cakework/lib => ../../lib
