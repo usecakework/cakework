@@ -279,8 +279,9 @@ func handleGetRequestLogs(c *gin.Context) {
 	userId := requestDetails.UserId
 	appName := requestDetails.App
 	taskName := requestDetails.Task
+	machineId := requestDetails.MachineId
 
-	logs, err := getRequestLogs(userId, appName, taskName, requestId)
+	logs, err := getRequestLogs(userId, appName, taskName, machineId, requestId)
 	if err != nil {
 		fmt.Println(err)
 		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
@@ -485,7 +486,7 @@ func updateMachineId(c *gin.Context) {
 	} else {
 		if err != nil {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
 		}
