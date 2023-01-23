@@ -53,6 +53,13 @@ var db *sql.DB
 const NATS_URL = "cakework-nats-cluster.internal"
 const DSN = "o8gbhwxuuk6wktip1q0x:pscale_pw_2UIlU6gaoTm7UBXYCbWCuHCkFYqO5pkJQmSri74KRn5@tcp(us-west.connect.psdb.cloud)/cakework?tls=true&parseTime=true"
 
+//go:embed .env
+var envFile []byte
+
+// this isn't really needed, but vscode auto removes the import for embed if it's not referenced
+//go:embed fly.toml
+var flyConfig embed.FS
+
 func main() {
 	localPtr := flag.Bool("local", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
 	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
@@ -61,6 +68,25 @@ func main() {
 
 	local = *localPtr
 	verbose = *verbosePtr
+
+	stage := os.Getenv("STAGE")
+	if stage == "" {
+		log.Fatal("Failed to get stage from environment variable")
+	} else {
+		log.Info("Got stage: " + stage)
+	}
+
+	if stage == "dev" {
+		viper.SetConfigType("dotenv")
+		err := viper.ReadConfig(bytes.NewBuffer(envFile))
+	
+		if err != nil {
+			fmt.Println(fmt.Errorf("%w", err))
+			os.Exit(1)
+		}	
+	} else {
+		viper.SetConfigType("env")
+	}
 
 	var nc *nats.Conn
 
