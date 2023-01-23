@@ -2,6 +2,8 @@
 
 # Set up your own stack
 
+1. Set up a MySQL DB with the following [schema](db/schema.prisma).
+
 5. Start the log shipper (Requires Logtail account). From the ```./log-shipper`` dir:
     1. Modify the ```fly.toml``` file with your Fly.io org name
     2. [Set the appropriate secrets for Fly and Logtail](https://github.com/superfly/fly-log-shipper)
