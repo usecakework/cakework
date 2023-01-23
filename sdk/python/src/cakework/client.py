@@ -11,6 +11,7 @@ import logging
 from cakework import exceptions
 from urllib3.exceptions import NewConnectionError
 import os
+from dotenv import load_dotenv
 
 # TODO: need to re-enable TLS for the handlers in the fly.toml file. Try these settings: https://community.fly.io/t/urgent-grpc-server-unreachable-via-grpcurl/2694/12 for alpn
 # TODO figure out how to configure the settings for fly.toml for grpc!
@@ -20,15 +21,16 @@ logging.basicConfig(level=logging.INFO)
 
 class Client:
     def __init__(self, project, client_token, local=False): # TODO: infer user id // TODO revert local back to False
-
+        load_dotenv()
         # TODO get rid of "shared"
         self.project = project.lower().replace('_', '-')
         # make a call to the frontend to get the user_id using the client token
         if local:
             self.frontend_url = "http://localhost:8080"
         else:
-            self.frontend_url = "https://cakework-frontend.fly.dev"
+            self.frontend_url = os.getenv("FRONTEND_URL")
 
+        print("Set frontend url to: " + self.frontend_url)
         response = None
         self.headers = None
         try:
@@ -157,7 +159,7 @@ class Client:
                 else:
                     request["memory"] = memory
         
-            # print(request) # TODO delete 
+            # print(request) # TODO delete
   
             response = requests.post(f"{self.frontend_url}/client/submit-task", json=request, headers=self.headers)
             response_json = response.json()
