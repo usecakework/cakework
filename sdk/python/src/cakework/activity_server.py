@@ -23,9 +23,14 @@ import os
 import threading
 import requests
 import logging
-from cakework import auth
 
 logging.basicConfig(level=logging.INFO)
+
+def get_token(context):
+    metadict = dict(context.invocation_metadata())
+    authorization = metadict['authorization']
+    split = authorization.split(' ')
+    return split[1]
 
 class Cakework(cakework_pb2_grpc.CakeworkServicer):
     def __init__(self, user_activity, local=False):
@@ -37,9 +42,8 @@ class Cakework(cakework_pb2_grpc.CakeworkServicer):
             self.frontend_url = "https://cakework-frontend.fly.dev"
 
     def RunActivity(self, request, context):
-        # update to in progress
+        token = get_token(context)
         scope = "update:status update:result"
-        token = auth.get_token("l2OCkl1RIrWgYwaHeH394C0bXKJRIucI", "aYUDERY08rNhciuebW5rpShcU_KmcyY-RK-A55-ltkSmt-1mvAfAcJdVTsZDEBRh", scope) # TODO remove this from open source code
         headers = {'content-type': 'application/json', 'authorization': 'Bearer ' + token}
         response = requests.patch(f"{self.frontend_url}/update-status", json={"userId": request.userId, "app": request.app, "requestId": request.requestId, "status": "IN_PROGRESS"}, headers=headers)
         # TODO check the response

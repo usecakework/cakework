@@ -157,7 +157,7 @@ class Client:
                 else:
                     request["memory"] = memory
         
-            print(request)
+            # print(request) # TODO delete 
   
             response = requests.post(f"{self.frontend_url}/client/submit-task", json=request, headers=self.headers)
             response_json = response.json()
