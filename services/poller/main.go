@@ -255,17 +255,17 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 
 	var conn *grpc.ClientConn
 
-	var endpoint string
+	var workerEndpoint string
 
 	if stage == "dev" {
-		endpoint = "localhost:50051" // not yet supported; for running the grpc server locally
+		workerEndpoint = "localhost:50051" // not yet supported; for running the grpc server locally
 		// endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	} else {
-		endpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
+		workerEndpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	}
 
-	log.Info("Attempting to send request to machine endpoint: " + endpoint)
-	conn, err = grpc.Dial(endpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool?
+	log.Info("Attempting to send request to machine endpoint: " + workerEndpoint)
+	conn, err = grpc.Dial(workerEndpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool?
 
 	if err != nil {
 		fmt.Printf("did not connect: %s", err)
@@ -277,7 +277,12 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 
 	// Add token to gRPC Request.
 	ctx := context.Background()
-	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer " + frontendCredentialsProvider.AccessToken)
+	creds, err := frontendCredentialsProvider.GetCredentials() // TODO fix this so that we're not getting new tokens all the time and am actually storing the token in the provider
+	if err != nil {
+		log.Error("Failed to get credentials from frontend creds provider")
+		return err
+	}
+	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer " + creds.AccessToken)
 
 	c := pb.NewCakeworkClient(conn)
 	createReq := pb.Request{Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId}
