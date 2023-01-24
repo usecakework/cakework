@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -42,9 +41,6 @@ var dockerfile embed.FS
 //go:embed fly.toml
 var flyConfig embed.FS
 
-//go:embed .env
-var envFile []byte
-
 // TODO put stuff into templates for different languages
 
 //go:embed .gitignore_python
@@ -54,6 +50,12 @@ var configFile string
 var credsProvider auth.BearerCredentialsProvider
 
 func main() {
+	ex, err := os.Executable()                                                                                                             
+    if err != nil {                                                                                                                        
+        panic(err)                                                                                                                         
+    }                                                                                                                                      
+    exePath := filepath.Dir(ex)                                                                                                            
+
 	var appName string
 	var language string
 	var appDirectory string
@@ -63,8 +65,23 @@ func main() {
 	dirname, _ := os.UserHomeDir()
 	cakeworkDirectory := dirname + "/.cakework"
 
+	// if buliding as part of github actions, do not load env variables from .env
+
 	viper.SetConfigType("env")
-	err := viper.ReadConfig(bytes.NewBuffer(envFile))
+	viper.AutomaticEnv()
+	stage := viper.GetString("STAGE")
+
+	if stage == "github" {
+		// if deploying via github actions, read env variables in
+		// do nothing
+	} else { // building locally; look for env variables from .env
+		viper.SetConfigType("dotenv")
+		viper.SetConfigName(".env")
+		viper.AddConfigPath(exePath)
+		err = viper.ReadInConfig()
+	}
+
+	fmt.Println("Got stage: " + stage) // TODO delete
 
 	if err != nil {
 		fmt.Println(fmt.Errorf("%w", err))
