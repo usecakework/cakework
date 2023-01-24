@@ -5,20 +5,18 @@
 </div>
 Cakework is a purpose-built cloud for serverless async backends. It shines at operations that take time or more compute such as file processing or machine learning. 
 
-<div align="center">
-  <a href="https://cakework.com" alt="website">Website</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://docs.cakework.com" alt="documentation">Documentation</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://discord.gg/yB6GvheDcP" alt="discord">Join the Discord</a>
-</div>
 
-<br />
+[Website](https://cakework.com)
+
+[Documentation](https://docs.cakework.com)
+
+[Discord](https://discord.gg/yB6GvheDcP)
+
 
 <div align="center">
 Backed by Y Combinator
-
 <img src="https://cakework-logo.s3.us-west-2.amazonaws.com/yc-logo.png" width="40">
+
 </div>
 
 ### 🍰 Zero Infrastructure
