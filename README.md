@@ -3,50 +3,79 @@
 <div align="center">
 <img src="https://cakework-logo.s3.us-west-2.amazonaws.com/favicon.png" width="150">
 </div>
-Cakework is a purpose-built cloud for serverless async backends. It shines at operations that take time or more compute such as file processing or machine learning. 
 
+Cakework helps you build serverless async backends without needing to manage any infrastructure. Cakework is built for work that takes time or more compute such as file processing, data analysis, or report generation.
 
-[Website](https://cakework.com)
+# Documentation
 
-[Documentation](https://docs.cakework.com)
+Check out the docs [here](https://docs.cakework.com/) to get started with Cakework.
 
-[Discord](https://discord.gg/yB6GvheDcP)
+# Community
 
+Join the [Discord](https://discord.gg/yB6GvheDcP) or send us an [email](mailto:hi@cakework.com)!
 
-<div align="center">
-Backed by Y Combinator
-<img src="https://cakework-logo.s3.us-west-2.amazonaws.com/yc-logo.png" width="40">
+# Why Cakework
 
-</div>
-
-### 🍰 Zero Infrastructure
+## 🍰 Zero Infrastructure
 
 Your backend is just code. We take care of queues, workers, and data behind the scenes.
 
-### 🍰 Compute, Your Way
+## 🍰 Compute, Your Way
 
 Set CPU and memory per request. Each request runs on its own microVM with no timeout limitations.
 
-### 🍰 Client SDK
+## 🍰 Client SDKs
 
 Use the pre-built Client SDKs to run tasks, get status, and get results. No additional backend work required.
 
-### 🍰 Easy Debugging
+## 🍰 Built-in Devops.
 
 Use the CLI to query requests by status, and view inputs, outputs, and logs.
 
+# Get it Running!
 
-# Self hosting
+## Account Signups
+1. Sign up for a Fly.io account
+2. Sign up for a Logtail account 
+3. Sign up for an Auth0 account
 
-1. Set up a MySQL DB with the following [schema](db/schema.prisma).
-2. Sign up for a Fly.io account.
-3. Start the log shipper (Requires Logtail account). From the `./log-shipper` dir:
+## Setup 
+1. Set up a hosted MySQL DB with the following [schema](db/schema.prisma). We use Planetscale.
+2. Set up Auth0. Configure the frontend service as an API with the appropriate scopes, the poller as an Application, and CLI as a Native Application.
+
+## Deploy
+1. Deploy a NATS cluster to Fly.io by using this project: https://github.com/fly-apps/nats-cluster. Note the app name that you select for your Fly App; you'll need this to configure the frontend and poller services.
+
+2. Deploy the frontend service
+```
+cd services/frontend
+make deploy
+```
+Store all your secrets in Fly with all the appropriate variables. You'll need to store an additional secret STAGE which should not be equal to "dev".
+
+3. Deploy the poller service
+```
+cd services/poller
+make deploy
+```
+Store the secrets in your .env file in Fly. You'll need to store an additional secret STAGE which should not be equal to "dev"
+
+4. Deploy the log shipper. From the `services/log-shipper` dir:
     1. Modify the ```fly.toml``` file with your Fly.io org name
     2. [Set the appropriate secrets for Fly and Logtail](https://github.com/superfly/fly-log-shipper)
     3. Run ```fly deploy```
-4. Set up Auth0. Configure your frontend service as an API with the appropriate scopes, the poller as an Application, and CLI as a Native Application.
 
-# Set up local development
+## Build the CLI
+```
+cd cli
+go build -o cli
+```
+This create an executable called `cli`. You can create an alias in your .rc script so that invocations to `cakework` point to the path of the executable.
+```
+alias cakework="~/workspace/cakework/cli/cli"
+```
+
+# Local Development
 
 1. [Install NATS](https://docs.nats.io/nats-concepts/what-is-nats/walkthrough_setup).
 2. Start NATS server with Jetstream.
@@ -65,42 +94,6 @@ From the `./poller` dir, run:
 
 ```
 make local
-```
-
-# Deploy to Fly
-1. Deploy a NATS cluster to Fly.io by using this project: https://github.com/fly-apps/nats-cluster. Note the app name that you select for your Fly App; you'll need this to configure the frontend and poller services.
-2. Deploy frontend service
-```
-cd services/frontend
-make deploy
-```
-Store the secrets in your .env file in Fly. You'll need to store an additional secret STAGE which should not be equal to "dev"
-3. Deploy poller service
-```
-cd services/frontend
-make deploy
-```
-Store the secrets in your .env file in Fly. You'll need to store an additional secret STAGE which should not be equal to "dev"
-
-# Build the CLI
-```
-cd cli
-go build -o cli
-```
-This create an executable called `cli`. You can create an alias in your .rc script so that invocations to `cakework` point to the path of the executable.
-```
-alias cakework="~/workspace/cakework/cli/cli"
-```
-# Deploying a task
-```
-cakework signup
-cakework new yummy && cd yummy
-cakework deploy
-```
-# Run a task
-```
-cd yummy
-python3 example_client/main.py
 ```
 
 # Help
