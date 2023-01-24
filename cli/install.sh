@@ -6,9 +6,9 @@ set -e
 
 os=$(uname -s)
 arch=$(uname -m)
-# version=${1:-latest}
-# version=${1:-$(curl --silent https://api.github.com/repos/usecakework/cakeworkctl/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')}
-# version_number=$(echo ${version} | sed 's/v//g')
+version=${1:-latest}
+version=${1:-$(curl --silent https://api.github.com/repos/usecakework/cakeworkctl/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')}
+version_number=$(echo ${version} | sed 's/v//g')
 
 install_dir="${CAKEWORK_INSTALL_DIR:-$HOME/.cakework/bin}"
 bin="$install_dir/cakework"
@@ -19,15 +19,11 @@ if [ ! -d "$install_dir" ]; then
 fi
 
 # TODO get latest release. currently just hard-coding
-# https://github.com/usecakework/cakeworkctl/releases/latest/download/latest/cakeworkctl_latest_Darwin_arm64.tar.gz
-# /owner/name/releases/latest/download/asset-name.zip
-# release_url=$(curl --silent --write-out "%{redirect_url}\n" --output /dev/null https://cakeworkctl-downloads.s3.us-west-2.amazonaws.com/1.0.44/cakeworkctl_1.0.44_Darwin_arm64.tar.gz)
-
-
+release_url=$(curl --silent --write-out "%{redirect_url}\n" --output /dev/null "https://github.com/usecakework/cakework/releases/download/${version}/cakework_${version_number}_${os}_${arch}.tar.gz")
 
 extract_dir="$(mktemp -d)"
 # disabled progress bar here
-curl -q --fail --location --output "$extract_dir/cakework.tar.gz" "https://cakeworkctl-downloads.s3.us-west-2.amazonaws.com/1.0.61/cakeworkctl_1.0.61_${os}_${arch}.tar.gz"
+curl -q --fail --location --output "$extract_dir/cakework.tar.gz" "$release_url"
 cd "$extract_dir"
 tar xzf "cakework.tar.gz"
 mv "$extract_dir/cakework" "$bin"

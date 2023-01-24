@@ -1,5 +1,8 @@
 name: goreleaser
 
+env:
+  STAGE: github
+
 on:
   push:
     paths:
