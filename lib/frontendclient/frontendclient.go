@@ -255,3 +255,32 @@ func (client *Client) UpdateMachineId(userId string, app string, requestId strin
 		return errors.New("Error getting request status from server. " + res.Status)
 	}
 }
+
+func (client *Client) GetCLISecrets() (*types.CLISecrets, error) {
+	url := client.Url + "/get-cli-secrets"
+	var secrets types.CLISecrets
+
+	res, err := http.CallV2(url, "GET", nil, client.CredentialsProvider)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == 200 {
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		// var data map[string]interface{}
+		// err = json.NewDecoder(body).Decode(&data)
+	
+		json.Unmarshal(body, &secrets)
+		return &secrets, nil
+	} else if res.StatusCode == 404 {
+		return nil, errors.New("404 not found from frontend")
+	} else {
+		fmt.Println(res)
+		return nil, errors.New("Server error: " + res.Status)
+	}
+}

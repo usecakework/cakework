@@ -147,3 +147,7 @@ type GetRequestLogsRequest struct {
 type TaskLogs struct {
 	Requests []Request `json:"requests"`
 }
+
+type CLISecrets struct {
+	FLY_ACCESS_TOKEN string `json:"FLY_ACCESS_TOKEN"`
+}

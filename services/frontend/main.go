@@ -147,8 +147,7 @@ func main() {
 	issuerURL, _ := url.Parse(AUTH0_URL)
 
 	// The audience of our token.
-	FRONTEND_URL := viper.GetString("FRONTEND_URL")
-	audience := FRONTEND_URL
+	audience := "https://cakework-frontend.fly.dev" // TODO put into .env
 
 	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
 
@@ -176,7 +175,7 @@ func main() {
 		jwtProtectedGroup.GET("/request/logs", handleGetRequestLogs)
 		jwtProtectedGroup.POST("/create-machine", createMachine, jwtTokenMiddleware("create:machine"))
 		jwtProtectedGroup.PATCH("/update-machine-id", updateMachineId, jwtTokenMiddleware("update:machine_id")) // TODO change to POST /request/status/requestId
-
+		jwtProtectedGroup.GET("/get-cli-secrets", getCLISecrets, jwtTokenMiddleware("create:user")) // wrong scope
 		// TODO have an add-task
 	}
 
@@ -344,6 +343,21 @@ func getStatus(c *gin.Context) {
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}
+}
+
+func getCLISecrets(c *gin.Context) {
+	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
+	if FLY_ACCESS_TOKEN == "" {
+		log.Info("FLY_ACCESS_TOKEN shouldn't be null")
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "FLY_ACCESS_TOKEN shouldn't be null"})
+		return
+	}
+
+	secrets := types.CLISecrets {
+		FLY_ACCESS_TOKEN: FLY_ACCESS_TOKEN,
+	}
+
+	c.IndentedJSON(http.StatusOK, secrets)
 }
 
 func getResult(c *gin.Context) {

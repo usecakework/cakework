@@ -212,7 +212,7 @@ func GetTokensClientCredentials(clientSecret string) (string, error) {
 		return "", errors.New("Failed to get AUTH0_AUDIENCE from environment")
 	}
 	// if using the creds to call an api, need to use the API's Identifier as the audience
-	payload := strings.NewReader("grant_type=client_credentials&client_id=" + AUTH0_CLIENT_ID + "&client_secret=" + AUTH0_CLIENT_SECRET + "&audience=" + AUTH0_AUDIENCE + "&scope=get:status get:result update:result update:status add:task call:task get:user submit:task create:client_token create:user get:user_from_client_token update:machine_id") // TODO consolidate scopes
+	payload := strings.NewReader("grant_type=client_credentials&client_id=" + AUTH0_CLIENT_ID + "&client_secret=" + AUTH0_CLIENT_SECRET + "&audience=" + AUTH0_AUDIENCE + "&scope=get:status get:result update:result update:status add:task call:task get:user submit:task create:client_token create:user get:user_from_client_token update:machine_id get:cli_secrets") // TODO consolidate scopes
 
 	req, _ := http.NewRequest("POST", AUTH0_TOKEN_URL, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
