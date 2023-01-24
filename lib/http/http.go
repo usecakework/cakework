@@ -56,11 +56,12 @@ func Call(url string, method string, reqStruct interface{}, provider auth.Creden
 // takes *http.Request, does not perform auth
 func CallHttp(req *http.Request) (bodyMap map[string]interface{}, res *http.Response, err error) {
 	reqDump, err := httputil.DumpRequestOut(req, true)
+	log.Debug(string(reqDump)) // TODO delete
+
 	if err != nil {
 		return nil, nil, err
 	}
 
-	log.Debug(string(reqDump)) // TODO delete
 	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, nil, err
