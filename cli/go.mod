@@ -5,14 +5,17 @@ go 1.19
 replace github.com/usecakework/cakework/lib => ../lib
 
 require (
-	github.com/MicahParks/keyfunc v1.9.0
 	github.com/briandowns/spinner v1.20.0
-	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/google/uuid v1.1.2
 	github.com/jedib0t/go-pretty/v6 v6.4.4
 	github.com/sirupsen/logrus v1.9.0
 	github.com/urfave/cli/v2 v2.24.1
 	github.com/usecakework/cakework/lib v0.0.0
+)
+
+require (
+	github.com/MicahParks/keyfunc v1.9.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 )
 
 require (
@@ -43,7 +46,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/usecakework/cakework/lib v0.0.0-00010101000000-000000000000
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/term v0.1.0 // indirect
 )
