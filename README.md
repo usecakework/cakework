@@ -1,6 +1,42 @@
 # Cakework
 
+<div align="center">
+<img src="https://cakework-logo.s3.us-west-2.amazonaws.com/favicon.png" width="150">
+</div>
 Cakework is a purpose-built cloud for serverless async backends. It shines at operations that take time or more compute such as file processing or machine learning. 
+
+<div align="center">
+  <a href="https://cakework.com" alt="website">Website</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://docs.cakework.com" alt="documentation">Documentation</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://discord.gg/yB6GvheDcP" alt="discord">Join the Discord</a>
+</div>
+
+<br />
+
+<div align="center">
+Backed by Y Combinator
+
+<img src="https://cakework-logo.s3.us-west-2.amazonaws.com/yc-logo.png" width="40">
+</div>
+
+### 🍰 Zero Infrastructure
+
+Your backend is just code. We take care of queues, workers, and data behind the scenes.
+
+### 🍰 Compute, Your Way
+
+Set CPU and memory per request. Each request runs on its own microVM with no timeout limitations.
+
+### 🍰 Client SDK
+
+Use the pre-built Client SDKs to run tasks, get status, and get results. No additional backend work required.
+
+### 🍰 Easy Debugging
+
+Use the CLI to query requests by status, and view inputs, outputs, and logs.
+
 
 # Self hosting
 
@@ -56,6 +92,17 @@ go build -o cli
 This create an executable called `cli`. You can create an alias in your .rc script so that invocations to `cakework` point to the path of the executable.
 ```
 alias cakework="~/workspace/cakework/cli/cli"
+```
+# Deploying a task
+```
+cakework signup
+cakework new yummy && cd yummy
+cakework deploy
+```
+# Run a task
+```
+cd yummy
+python3 example_client/main.py
 ```
 
 # Help
