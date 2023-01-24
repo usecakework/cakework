@@ -44,9 +44,6 @@ var flyConfig embed.FS
 
 // TODO put stuff into templates for different languages
 
-//go:embed .env
-var envFile embed.FS
-
 //go:embed .gitignore_python
 var gitIgnore embed.FS // for python only! TODO fix
 var config cwConfig.Config
