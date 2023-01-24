@@ -1,38 +1,11 @@
-Testing/running the cli locally:
-`go build -o cakework && ./cakework`
-
-Without building: 
-`go run frontend.go status.go http.go auth.go cakework.go login`
-
-To build using 
-, if you aren't authenticated with fly:
-`docker build -t cli:latest . && docker run -it --env FLY_API_TOKEN=$REPLACE_ME cli:latest deploy`
-
-Calling/testing the cli locally from another package:
-`go install cakework.go`
-Make sure that you have set up your .zshrc or .bashrc files first, 
-```
-export GOPATH="$HOME/go"
-export GO111MODULE=on
-export GOROOT=/usr/local/go
-export PATH="$PATH:$GOPATH/bin"
-export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-```
-
-From the directory where your source code for your cakework project is, call the cakework cli:
-`cakework start`
-
-Installing new go dependencies:
-Example:
-`export GO111MODULE=on; go get -u github.com/urfave/cli/v2`
-
+# Releasing
 To release to GitHub, you'll need to export a GITHUB_TOKEN environment variable, which should contain a valid GitHub token with the repo scope. It will be used to deploy releases to your GitHub repository.
 `export GITHUB_TOKEN="YOUR_GH_TOKEN"`
 
 To publish executable via Homebrew:
 - Create new commit of local changes first
 - 
-- `VERSION=v1.0.51 && git tag -a $VERSION -m 'new revision' && git push origin $VERSION` (replace with new version)
+- `VERSION=v1.0.65 && git tag -a $VERSION -m 'new revision' && git push origin $VERSION` (replace with new version)
 - `git push` to trigger Github Actions to build a new revision
 
 <!-- TODO: figure out how to install using brew -->
