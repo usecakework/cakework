@@ -55,6 +55,7 @@ var configFile string
 var credsProvider auth.BearerCredentialsProvider
 
 var frontendClient *frontendclient.Client
+var FRONTEND_URL string
 
 func main() {
 
@@ -97,7 +98,7 @@ func main() {
 
 	credsProvider = auth.BearerCredentialsProvider{ConfigFile: configFile}
 
-	FRONTEND_URL := viper.GetString("FRONTEND_URL")
+	FRONTEND_URL = viper.GetString("FRONTEND_URL")
 	
 
 	frontendClient = frontendclient.New(FRONTEND_URL, credsProvider)
@@ -342,7 +343,7 @@ if __name__ == "__main__":
 						return fmt.Errorf("Error creating virtual env: %w", err)
 					}
 
-					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework")
+					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework && pip3 install python-dotenv")
 					cmd.Dir = appDirectory
 					_, err = shell.RunCmd(cmd, "") // don't do anything with out?
 					if err != nil {
@@ -750,19 +751,33 @@ if __name__ == "__main__":
 }
 
 func createExampleClient(appDirectory string, appName string) error {
+	userId, err := getUserId(configFile)
+	if err != nil {
+		return fmt.Errorf("Error getting user details to create a client token with: %w", err)
+	}
+	frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+	clientToken, err := frontendClient.CreateClientToken(userId, appName)
+
+	if err != nil {
+		return fmt.Errorf("Error creating a client token: %w", err)
+	}
 	// create sample client
 	exampleClientDirectory := filepath.Join(appDirectory, "example_client")
-	err := os.Mkdir(exampleClientDirectory, os.ModePerm)
+	err = os.Mkdir(exampleClientDirectory, os.ModePerm)
 	if err != nil {
 		return err
 	}
 	exampleClient := `from cakework import Client
 import time
-
-# Generate your client token with create-client-token my-client-token
-CAKEWORK_CLIENT_TOKEN = "YOUR_CLIENT_TOKEN_HERE"
+from dotenv import load_dotenv
+import os
 
 if __name__ == "__main__":
+    load_dotenv()  # take environment variables from .env.
+
+	# Generate your client token with create-client-token my-client-token
+    CAKEWORK_CLIENT_TOKEN = os.environ.get("CAKEWORK_CLIENT_TOKEN")
+	
     client = Client("` + appName + `", CAKEWORK_CLIENT_TOKEN)
 
     # You can persist this request ID to get status of the job later
@@ -787,6 +802,16 @@ if __name__ == "__main__":
 	defer f.Close()
 
 	f.WriteString(exampleClient)
+	f.Sync()
+
+	f, err = os.Create(filepath.Join(exampleClientDirectory, ".env"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	dotEnv := `CAKEWORK_CLIENT_TOKEN=` + clientToken.Token
+	f.WriteString(dotEnv)
 	f.Sync()
 
 	return nil
