@@ -22,7 +22,7 @@ FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /app/poller ./
 EXPOSE 8080
-CMD ["./poller"]
+CMD ["./poller", "-verbose"]
 
 
 # TODO need to fix Docker build so that it works with go local replace directives: https://github.com/golang/go/issues/26640
