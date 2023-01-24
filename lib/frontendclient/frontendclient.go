@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	"github.com/usecakework/cakework/lib/auth"
 	fly "github.com/usecakework/cakework/lib/fly/cli"
@@ -44,7 +45,7 @@ func (client *Client) CreateMachine(userId string, project string, task string, 
 		Source:    source,
 	}
 
-	_, res, err := http.Call(url, "POST", req, client.CredentialsProvider)
+	res, err := http.CallV2(url, "POST", req, client.CredentialsProvider)
 	if err != nil {
 		return err
 	}
@@ -63,14 +64,21 @@ func (client *Client) GetUser(userId string) (*types.User, error) {
 		UserId: userId,
 	}
 
-	body, res, err := http.Call(url, "GET", getUserRequest, client.CredentialsProvider)
+	res, err := http.CallV2(url, "GET", getUserRequest, client.CredentialsProvider)
 	if err != nil {
 		return nil, err
 	}
 
+	defer res.Body.Close()
+
 	if res.StatusCode == 200 {
-		userId := body["id"].(string)
-		return &types.User{Id: userId}, nil
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		var user types.User
+		json.Unmarshal(body, &user)
+		return &user, nil
 	} else {
 		return nil, errors.New("Error getting user details." + res.Status)
 	}
@@ -82,14 +90,22 @@ func (client *Client) CreateUser(userId string) (*types.User, error) { // TODO c
 		UserId: userId,
 	}
 
-	body, res, err := http.Call(url, "POST", createUserRequest, client.CredentialsProvider)
+	res, err := http.CallV2(url, "POST", createUserRequest, client.CredentialsProvider)
 	if err != nil {
 		return nil, err
 	}
 
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
 	if res.StatusCode == 200 {
-		userId := body["id"].(string)
-		return &types.User{Id: userId}, nil
+		var user types.User
+		if err := json.Unmarshal(body, &user); err != nil {
+			return nil, err
+		}
+		return &user, nil
 	} else {
 		return nil, errors.New("Error creating a new user." + res.Status)
 	}
@@ -131,15 +147,22 @@ func (client *Client) GetRequestStatus(userId string, requestId string) (string,
 		RequestId: requestId,
 	}
 
-	body, res, err := http.Call(url, "GET", getStatusRequest, client.CredentialsProvider)
+	res, err := http.CallV2(url, "GET", getStatusRequest, client.CredentialsProvider)
 	if err != nil {
 		return "", err
 	}
 	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", nil
+	}
 
 	if res.StatusCode == 200 {
-		status := body["status"].(string)
-		return status, nil
+		var status types.GetStatusResponse
+		if err := json.Unmarshal(body, &status); err != nil {
+			return "", err
+		}
+		return status.Status, nil
 	} else if res.StatusCode == 404 {
 		return "", nil
 	} else {
@@ -226,12 +249,16 @@ func (client *Client) UpdateStatus(userId string, app string, requestId string, 
 		Status: status,
 	}
 
-	_, res, err := http.Call(url, "PATCH", req, client.CredentialsProvider)
+	res, err := http.CallV2(url, "PATCH", req, client.CredentialsProvider)
 	if err != nil {
 		fmt.Println(res) // TODO should be logging instead
 		return err
 	}
 	defer res.Body.Close()
+	_, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
 
 	if res.StatusCode == 200 || res.StatusCode == 201 {
 		return nil
@@ -250,7 +277,7 @@ func (client *Client) UpdateMachineId(userId string, app string, requestId strin
 	}
 
 	fmt.Println("about to call frontend to update machine id") // TODO delete
-	_, res, err := http.Call(url, "PATCH", req, client.CredentialsProvider)
+	res, err := http.CallV2(url, "PATCH", req, client.CredentialsProvider)
 	if err != nil {
 		fmt.Println("Got error calling frontend to update machine id")
 		fmt.Println(res) // TODO should be logging instead. most likely this is nil
