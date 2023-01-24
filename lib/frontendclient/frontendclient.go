@@ -276,7 +276,6 @@ func (client *Client) UpdateMachineId(userId string, app string, requestId strin
 		MachineId: machineId,
 	}
 
-	fmt.Println("about to call frontend to update machine id") // TODO delete
 	res, err := http.CallV2(url, "PATCH", req, client.CredentialsProvider)
 	if err != nil {
 		fmt.Println("Got error calling frontend to update machine id")
