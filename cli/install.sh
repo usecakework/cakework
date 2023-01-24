@@ -7,7 +7,7 @@ set -e
 os=$(uname -s)
 arch=$(uname -m)
 version=${1:-latest}
-version=${1:-$(curl --silent https://api.github.com/repos/usecakework/cakeworkctl/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')}
+version=${1:-$(curl --silent https://api.github.com/repos/usecakework/cakework/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')}
 version_number=$(echo ${version} | sed 's/v//g')
 
 install_dir="${CAKEWORK_INSTALL_DIR:-$HOME/.cakework/bin}"
