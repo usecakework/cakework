@@ -17,6 +17,7 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     defaults:
+        shell: bash
         working-directory: cli
     steps:
       - uses: actions/checkout@v3
