@@ -23,6 +23,20 @@ jobs:
         run:
             working-directory: ./cli/
     steps:
+      - name: Create .env file
+        uses: ozaytsev86/create-env-file@v1
+        with:
+          ENV_AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          ENV_AUTH0_DEVICE_CODE_URL: ${{ secrets.AUTH0_DEVICE_CODE_URL }}
+          ENV_AUTH0_TOKEN_URL: ${{ secrets.AUTH0_TOKEN_URL }}
+          ENV_AUTH0_URL: ${{ secrets.AUTH0_URL }}
+          ENV_AUTH0_USERINFO_URL: ${{ secrets.AUTH0_USERINFO_URL }}
+          ENV_FLY_ACCESS_TOKEN: ${{ secrets.FLY_ACCESS_TOKEN }}
+          ENV_FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          ENV_FLY_ORG: ${{ secrets.FLY_ORG }}
+          ENV_FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          ENV_FRONTEND_URL_AUTH0: ${{ secrets.FRONTEND_URL_AUTH0 }}
+          ENV_LOGTAIL_TOKEN: ${{ secrets.LOGTAIL_TOKEN }}
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
