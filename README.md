@@ -68,11 +68,11 @@ Store the secrets in your .env file in Fly. You'll need to store an additional s
 ## Build the CLI
 ```
 cd cli
-go build -o cli
+go build -o cakework
 ```
-This create an executable called `cli`. You can create an alias in your .rc script so that invocations to `cakework` point to the path of the executable.
+This create an executable called `cakework`. You can create an alias in your .rc script so that invocations to `cakework` point to the path of the executable.
 ```
-alias cakework="~/workspace/cakework/cli/cli"
+alias cakework="~/workspace/cakework/cli/cakework"
 ```
 
 # Local Development
