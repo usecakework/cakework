@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,7 +100,6 @@ func main() {
 	credsProvider = auth.BearerCredentialsProvider{ConfigFile: configFile}
 
 	FRONTEND_URL = viper.GetString("FRONTEND_URL")
-	
 
 	frontendClient = frontendclient.New(FRONTEND_URL, credsProvider)
 
@@ -389,20 +389,19 @@ if __name__ == "__main__":
 						fmt.Println(err)
 						os.Exit(1)
 					}
-				
+
 					log.Debug("got secrets")
 					log.Debug(secrets)
-				
+
 					FLY_ACCESS_TOKEN := secrets.FLY_ACCESS_TOKEN
 					if FLY_ACCESS_TOKEN == "" {
 						fmt.Println("Fly access token from frontend service is null")
 						os.Exit(1)
 					}
-				
+
 					FLY_ORG := viper.GetString("FLY_ORG")
 					fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
-				
-				
+
 					if !isLoggedIn(*config) {
 						fmt.Println("Please signup (cakework signup) or log in (cakework login).")
 						return nil
@@ -722,18 +721,15 @@ if __name__ == "__main__":
 								return nil
 							}
 
-							// t := table.NewWriter()
-							// t.Style().Options.DrawBorder = false
-							// t.SetOutputMirror(os.Stdout)
 							for _, line := range requestLogs.LogLines {
-								fmt.Println(line.Timestamp + "  " + line.LogLevel + "  " + line.Message)
-								// t.AppendRow([]interface{}{
-								// 	line.Timestamp,
-								// 	line.LogLevel,
-								// 	line.Message,
-								// })
+								timestampInt, err := strconv.ParseInt(line.Timestamp, 10, 64)
+								if err != nil {
+									return errors.New("Error printing logs")
+								}
+
+								timestamp := time.UnixMilli(timestampInt).Format("02-Jan-06T15:04:05.00")
+								fmt.Println(timestamp + "  " + line.LogLevel + "  " + line.Message)
 							}
-							// t.Render()
 
 							return nil
 						},
@@ -903,7 +899,7 @@ func signUpOrLogin() error {
 
 	// if using the creds to call an api, need to use the API's Identifier as the audience
 	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
-	FRONTEND_URL_AUTH0 := "https%3A%2F%2Fcakework-frontend.fly.dev"// viper.GetString("FRONTEND_URL_AUTH0")
+	FRONTEND_URL_AUTH0 := "https%3A%2F%2Fcakework-frontend.fly.dev" // viper.GetString("FRONTEND_URL_AUTH0")
 
 	payload := strings.NewReader("client_id=" + AUTH0_CLIENT_ID + "&scope=openid offline_access add:task get:user create:user create:client_token get:status get:task_status create:machine get:cli_secrets %7D&audience=" + FRONTEND_URL_AUTH0)
 	req, _ := http.NewRequest("POST", AUTH0_DEVICE_CODE_URL, payload)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 
 	"github.com/spf13/viper"
 	"github.com/usecakework/cakework/lib/types"
@@ -41,6 +42,11 @@ func getLogs(simpleQuery string) (*types.RequestLogs, error) {
 
 	var requestLogs types.RequestLogs
 	json.Unmarshal(body, &requestLogs)
+
+	// sort everything by timestamp
+	sort.Slice(requestLogs.LogLines, func(i, j int) bool {
+		return requestLogs.LogLines[i].Timestamp < requestLogs.LogLines[j].Timestamp
+	})
 
 	return &requestLogs, nil
 }
