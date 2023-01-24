@@ -199,6 +199,9 @@ func GetTokensClientCredentials(clientSecret string) (string, error) {
 	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
 	AUTH0_CLIENT_SECRET := viper.GetString("AUTH0_CLIENT_SECRET")
 	AUTH0_AUDIENCE := viper.GetString("AUTH0_AUDIENCE")
+	if clientSecret == "" {
+		return "", errors.New("Failed to get access token; client secret is null")
+	}
 	if AUTH0_TOKEN_URL == "" {
 		return "", errors.New("Failed to get AUTH0_TOKEN_URL from environment")
 	}
@@ -300,10 +303,15 @@ func PrettyPrintRequest(req *http.Request) string {
 	return string(reqDump)
 }
 
+func PrettyPrintResponse(res *http.Response) string {
+	reqDump, _ := httputil.DumpResponse(res, true)
+	return string(reqDump)
+}
+
 // takes *http.Request, does not perform auth
 // not really ideal, remember to close when you use this
 func CallHttpV2(req *http.Request) (*http.Response, error) {
-	// fmt.Println(PrettyPrintRequest(req)) // TODO delete
+	fmt.Println(PrettyPrintRequest(req)) // TODO delete
 	client := http.Client {
 		Timeout: time.Second * 60,
 	}
@@ -314,6 +322,6 @@ func CallHttpV2(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	
-	// fmt.Println(PrettyPrintResponse(res)) // TODO delete
+	fmt.Println(PrettyPrintResponse(res)) // TODO delete
 	return res, nil
 }

@@ -102,14 +102,23 @@ func (client *Client) CreateClientToken(userId string, name string) (*types.Clie
 		Name:   name,
 	}
 
-	body, res, err := http.Call(url, "POST", createTokenReq, client.CredentialsProvider)
+	res, err := http.CallV2(url, "POST", createTokenReq, client.CredentialsProvider)
 	if err != nil {
 		return nil, err
 	}
 
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+
 	if res.StatusCode == 201 {
-		token := body["token"].(string)
-		return &types.ClientToken{Token: token}, nil
+		var tok *types.ClientToken
+		json.Unmarshal(body, &tok)
+		return tok, nil
 	} else {
 		return nil, errors.New("Error creating client token" + res.Status)
 	}
