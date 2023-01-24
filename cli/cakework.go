@@ -98,7 +98,7 @@ func main() {
 	app := &urfaveCli.App{
 		Name:     "cakework",
 		Usage:    "This is the Cakework command line interface",
-		Version:  "v1.0.65", // TODO automatically update this and tie this to the goreleaser version
+		Version:  "v1.0.66", // TODO automatically update this and tie this to the goreleaser version
 		Compiled: time.Now(),
 		Flags: []urfaveCli.Flag{
 			&urfaveCli.BoolFlag{Name: "verbose", Hidden: true},
@@ -843,7 +843,7 @@ func signUpOrLogin() error {
 	var data map[string]interface{}
 
 	// if exists already and a user is found, can skip the log in
-	
+
 	AUTH0_DEVICE_CODE_URL := viper.GetString("AUTH0_DEVICE_CODE_URL")
 
 	// if using the creds to call an api, need to use the API's Identifier as the audience
