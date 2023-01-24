@@ -843,9 +843,7 @@ func signUpOrLogin() error {
 	var data map[string]interface{}
 
 	// if exists already and a user is found, can skip the log in
-
-	// request device code
-
+	
 	AUTH0_DEVICE_CODE_URL := viper.GetString("AUTH0_DEVICE_CODE_URL")
 
 	// if using the creds to call an api, need to use the API's Identifier as the audience
