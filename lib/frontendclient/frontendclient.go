@@ -130,7 +130,6 @@ func (client *Client) CreateClientToken(userId string, name string) (*types.Clie
 		return nil, err
 	}
 
-
 	if res.StatusCode == 201 {
 		var tok *types.ClientToken
 		json.Unmarshal(body, &tok)
@@ -192,6 +191,7 @@ func (client *Client) GetRequestLogs(userId string, requestId string) (*types.Re
 		}
 
 		json.Unmarshal(body, &requestLogs)
+
 		return &requestLogs, nil
 	} else if res.StatusCode == 404 {
 		return nil, nil
@@ -244,9 +244,9 @@ func (client *Client) UpdateStatus(userId string, app string, requestId string, 
 	url := client.Url + "/update-status"
 	req := types.UpdateStatusRequest{
 		UserId:    userId,
-		App: app,
+		App:       app,
 		RequestId: requestId,
-		Status: status,
+		Status:    status,
 	}
 
 	res, err := http.CallV2(url, "PATCH", req, client.CredentialsProvider)
@@ -271,7 +271,7 @@ func (client *Client) UpdateMachineId(userId string, app string, requestId strin
 	url := client.Url + "/update-machine-id"
 	req := types.UpdateMachineId{
 		UserId:    userId,
-		App: app,
+		App:       app,
 		RequestId: requestId,
 		MachineId: machineId,
 	}
@@ -309,7 +309,7 @@ func (client *Client) GetCLISecrets() (*types.CLISecrets, error) {
 
 		// var data map[string]interface{}
 		// err = json.NewDecoder(body).Decode(&data)
-	
+
 		json.Unmarshal(body, &secrets)
 		return &secrets, nil
 	} else if res.StatusCode == 404 {

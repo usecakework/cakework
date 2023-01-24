@@ -10,18 +10,19 @@ type Request struct {
 	Status     string `json:"status"`
 	Parameters string `json:"parameters"`
 	Result     string `json:"result"`
-	CPU        int `json:"cpu"`
-	MemoryMB   int `json:"memory"`
+	CPU        int    `json:"cpu"`
+	MemoryMB   int    `json:"memory"`
 	MachineId  string `json:"machineId"`
 	CreatedAt  int64  `json:"created_at"`
 	UpdatedAt  int64  `json:"updated_at"`
 }
 
 type Compute struct {
-	CPU        string `json:"cpu"`
-	MemoryMB   string `json:"memoryMB"`
+	CPU      string `json:"cpu"`
+	MemoryMB string `json:"memoryMB"`
 }
 
+// TODO Timestamp is a string since that's what logtail gives us. Should force to int64 on the server instead of making clients deal with it.
 type RequestLogLine struct {
 	Timestamp string `json:"_dt"`
 	LogLevel  string `json:"log.level"`
@@ -82,7 +83,7 @@ type CreateMachineRequest struct {
 	Source    string `json:"source"`
 }
 
-// TODO add cpu and memory info and other config info to the machine? 
+// TODO add cpu and memory info and other config info to the machine?
 type FlyMachine struct {
 	UserId    string `json:"userId"`
 	Project   string `json:"project"`
