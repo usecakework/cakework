@@ -1,6 +1,6 @@
 [project]
 name = "cakework"
-version = "0.0.40"
+version = "0.0.44"
 authors = [
   { name="Jessie Young", email="jessie@cakework.com" },
 ]
@@ -15,8 +15,7 @@ classifiers = [
 dependencies = [
   "grpcio",
   "protobuf",
-  "requests",
-  "dotenv"
+  "requests"
 ]
 
 [project.urls]

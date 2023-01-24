@@ -11,7 +11,6 @@ import logging
 from cakework import exceptions
 from urllib3.exceptions import NewConnectionError
 import os
-from dotenv import load_dotenv
 
 # TODO: need to re-enable TLS for the handlers in the fly.toml file. Try these settings: https://community.fly.io/t/urgent-grpc-server-unreachable-via-grpcurl/2694/12 for alpn
 # TODO figure out how to configure the settings for fly.toml for grpc!
@@ -21,16 +20,14 @@ logging.basicConfig(level=logging.INFO)
 
 class Client:
     def __init__(self, project, client_token, local=False): # TODO: infer user id // TODO revert local back to False
-        load_dotenv()
         # TODO get rid of "shared"
         self.project = project.lower().replace('_', '-')
         # make a call to the frontend to get the user_id using the client token
         if local:
             self.frontend_url = "http://localhost:8080"
         else:
-            self.frontend_url = os.getenv("FRONTEND_URL")
+            self.frontend_url = "https://cakework-frontend.fly.dev"
 
-        print("Set frontend url to: " + self.frontend_url)
         response = None
         self.headers = None
         try:
@@ -45,10 +42,13 @@ class Client:
                        
             # TODO: handle error for if can't get a user from the client token. technically
             # we should be getting a JWT token instead first
-            response.raise_for_status() # TODO delete this?
+            response.raise_for_status()
             # TODO: handle http error, or request id not found error
         except requests.exceptions.HTTPError as err:
-            raise exceptions.CakeworkError("Http error while connecting to Cakework frontend") from err
+            if err.response.status_code == 401:
+                raise exceptions.CakeworkError("Missing client token; please generate and add a client token to your client.") from err
+            else:
+                raise exceptions.CakeworkError("Http error while connecting to Cakework frontend") from err
         except requests.exceptions.Timeout as err:
             raise exceptions.CakeworkError("Timed out connecting to Cakework frontend") from err
         except requests.exceptions.RequestException as err:

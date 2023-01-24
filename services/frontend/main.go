@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -25,6 +26,7 @@ import (
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	cwHttp "github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/types"
 	"github.com/usecakework/cakework/lib/util"
 )
@@ -82,6 +84,19 @@ var stage string
 var flyConfig embed.FS
 
 func main() {
+	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+
+	flag.Parse()
+
+	verbose := *verbosePtr
+
+	if verbose {
+		log.Info("Verbose=true")
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.Info("Verbose=false")
+		log.SetLevel(log.InfoLevel)
+	}
 	stage := os.Getenv("STAGE")
 	if stage == "" {
 		log.Fatal("Failed to get stage from environment variable")
@@ -140,6 +155,7 @@ func main() {
 
 	// Recovery middleware recovers from any panics and writes a 500 if there was one.
 	router.Use(gin.Recovery())
+	router.Use(ginBodyLogMiddleware)
 	router.Use(guidMiddleware())
 
 	// The issuer of our token.
@@ -192,27 +208,42 @@ func main() {
 	router.Run()
 }
 
+type bodyLogWriter struct {
+    gin.ResponseWriter
+    body *bytes.Buffer
+}
+
+func (w bodyLogWriter) Write(b []byte) (int, error) {
+    w.body.Write(b)
+    return w.ResponseWriter.Write(b)
+}
+
+func ginBodyLogMiddleware(c *gin.Context) {
+    blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+    c.Writer = blw
+    c.Next()
+    statusCode := c.Writer.Status()
+    if statusCode >= 400 {
+        //ok this is an request with error, let's make a record for it
+        // now print body (or log in your preferred way)
+        log.Error("Response body: " + blw.body.String())
+    }
+}
+
 func guidMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uuid := uuid.New()
 		c.Set("uuid", uuid)
 		log.Printf("Request started: %s\n", uuid)
+		log.Debug(cwHttp.PrettyPrintRequest(c.Request))
+		log.Debug(c.Request.Host)
+
 		if err != nil {
 			log.Error("Got error while printing request")
 			log.Error(err)
 		}
 		c.Next()
 		log.Printf("Request finished: %s\n", uuid)
-	}
-}
-
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		uuid := uuid.New()
-		c.Set("uuid", uuid)
-		fmt.Printf("The request with uuid %s is started \n", uuid)
-		c.Next()
-		fmt.Printf("The request with uuid %s is served \n", uuid)
 	}
 }
 
@@ -666,9 +697,11 @@ func getUserFromClientToken(c *gin.Context) {
 	var user types.User
 	err = db.QueryRow("SELECT userId FROM ClientToken where token = ?", newRequest.Token).Scan(&user.Id)
 	if err != nil {
+		log.Error(err)
 		if err.Error() == sql.ErrNoRows.Error() {
-			c.IndentedJSON(http.StatusBadRequest, "Invalid client token.")
+			c.IndentedJSON(http.StatusBadRequest, "Please provide a valid client token.")
 		} else {
+			log.Debug("TODO catch the specific error (such as access denied)")
 			c.IndentedJSON(http.StatusInternalServerError, "Something went wrong :( Please contact us.")
 		}
 	} else {

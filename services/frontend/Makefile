@@ -1,7 +1,7 @@
 local:
 	go build -o frontend
 	export STAGE=dev
-	./frontend
+	./frontend -verbose
 
 deploy:
 	mkdir build
