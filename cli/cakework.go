@@ -57,11 +57,6 @@ var credsProvider auth.BearerCredentialsProvider
 var frontendClient *frontendclient.Client
 
 func main() {
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exePath := filepath.Dir(ex)
 
 	var appName string
 	var language string
@@ -73,7 +68,7 @@ func main() {
 	cakeworkDirectory := dirname + "/.cakework"
 
 	viper.SetConfigType("dotenv")
-	err = viper.ReadConfig(bytes.NewBuffer(envFile))
+	err := viper.ReadConfig(bytes.NewBuffer(envFile))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
