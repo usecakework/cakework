@@ -1,7 +1,6 @@
 local:
 	go build -o poller 
-	export STAGE=dev
-	./poller
+	export STAGE=dev && ./poller
 
 deploy:
 	mkdir build

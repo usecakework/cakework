@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""The Python implementation of the GRPC helloworld.Greeter server."""
 
 from concurrent import futures
 import logging
@@ -19,11 +18,10 @@ import grpc
 from cakework import cakework_pb2
 from cakework import cakework_pb2_grpc
 import json
-import os
 import threading
 import requests
+import os
 import logging
-from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 
@@ -35,13 +33,12 @@ def get_token(context):
 
 class Cakework(cakework_pb2_grpc.CakeworkServicer):
     def __init__(self, user_activity, local=False):
-        load_dotenv()
         self.user_activity = user_activity
         self.local = local
         if self.local:
             self.frontend_url = "http://localhost:8080"
         else:
-            self.frontend_url = os.getenv("FRONTEND_URL")
+            self.frontend_url = "https://cakework-frontend.fly.dev"
 
     def RunActivity(self, request, context):
         token = get_token(context)
