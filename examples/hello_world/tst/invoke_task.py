@@ -7,6 +7,7 @@ if __name__ == "__main__":
     client = Client("hello_world", CAKEWORK_CLIENT_TOKEN)
     
     request_id = client.say_hello("jessie")
+    print(request_id)
     
     status = client.get_status(request_id)
     while (status == "PENDING" or status == "IN_PROGRESS"):
