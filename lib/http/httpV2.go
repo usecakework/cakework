@@ -13,12 +13,18 @@ import (
 
 // takes as input a struct, adds auth headers
 func CallV2(url string, method string, reqStruct interface{}, provider auth.CredentialsProvider) (*http.Response, error) {
-	jsonReq, err := json.Marshal(reqStruct)
-	if err != nil {
-		return nil, err
+	var req *http.Request
+	var err error
+	if reqStruct != nil {
+		jsonReq, err := json.Marshal(reqStruct)
+		if err != nil {
+			return nil, err
+		}
+	
+		req, err = http.NewRequest(method, url, bytes.NewBuffer(jsonReq))
+	} else {
+		req, err = http.NewRequest(method, url, nil)
 	}
-
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonReq))
 
 	if err != nil {
 		return nil, err
@@ -72,7 +78,7 @@ func CallHttpAuthedV2(req *http.Request, provider auth.CredentialsProvider) (*ht
 // takes *http.Request, does not perform auth
 // not really ideal, remember to close when you use this
 func CallHttpV2(req *http.Request) (*http.Response, error) {
-	// fmt.Println(PrettyPrintRequest(req)) // TODO delete
+	log.Debug(PrettyPrintRequest(req)) // TODO delete
 	client := http.Client{
 		Timeout: time.Second * 60,
 	}
@@ -83,6 +89,6 @@ func CallHttpV2(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	// fmt.Println(PrettyPrintResponse(res)) // TODO delete
+	log.Debug(PrettyPrintResponse(res))
 	return res, nil
 }

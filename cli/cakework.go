@@ -33,6 +33,7 @@ import (
 	"github.com/usecakework/cakework/lib/frontendclient"
 	cwHttp "github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/shell"
+	"github.com/usecakework/cakework/lib/types"
 )
 
 //go:embed Dockerfile
@@ -43,11 +44,16 @@ var flyConfig embed.FS
 
 // TODO put stuff into templates for different languages
 
+//go:embed .env
+var envFile embed.FS
+
 //go:embed .gitignore_python
 var gitIgnore embed.FS // for python only! TODO fix
 var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
+
+var frontendClient *frontendclient.Client
 
 func main() {
 	ex, err := os.Executable()
@@ -71,6 +77,9 @@ func main() {
 	viper.AutomaticEnv()
 	stage := viper.GetString("STAGE")
 
+	// call frontend to load environment variables into a .env file
+
+
 	if stage == "github" {
 		// if deploying via github actions, read env variables in
 		// do nothing
@@ -85,10 +94,6 @@ func main() {
 		fmt.Println(fmt.Errorf("%w", err))
 		os.Exit(1)
 	}
-
-	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
-	FLY_ORG := viper.GetString("FLY_ORG")
-	fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
 
 	log.Debug("appName: " + appName)
 	log.Debug("language: " + language)
@@ -109,6 +114,9 @@ func main() {
 	credsProvider = auth.BearerCredentialsProvider{ConfigFile: configFile}
 
 	FRONTEND_URL := viper.GetString("FRONTEND_URL")
+	
+
+	frontendClient = frontendclient.New(FRONTEND_URL, credsProvider)
 
 	app := &urfaveCli.App{
 		Name:     "cakework",
@@ -388,6 +396,28 @@ if __name__ == "__main__":
 				Name:  "deploy",
 				Usage: "Deploy your Project",
 				Action: func(cCtx *urfaveCli.Context) error {
+					var secrets *types.CLISecrets
+					var err error
+					secrets, err = frontendClient.GetCLISecrets()
+					if err != nil {
+						fmt.Println("Failed to get FLY access token from Cakework frontend")
+						fmt.Println(err)
+						os.Exit(1)
+					}
+				
+					log.Debug("got secrets")
+					log.Debug(secrets)
+				
+					FLY_ACCESS_TOKEN := secrets.FLY_ACCESS_TOKEN
+					if FLY_ACCESS_TOKEN == "" {
+						fmt.Println("Fly access token from frontend service is null")
+						os.Exit(1)
+					}
+				
+					FLY_ORG := viper.GetString("FLY_ORG")
+					fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
+				
+				
 					if !isLoggedIn(*config) {
 						fmt.Println("Please signup (cakework signup) or log in (cakework login).")
 						return nil
@@ -864,26 +894,23 @@ func signUpOrLogin() error {
 
 	// if using the creds to call an api, need to use the API's Identifier as the audience
 	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
-	FRONTEND_URL_AUTH0 := viper.GetString("FRONTEND_URL_AUTH0")
+	FRONTEND_URL_AUTH0 := "https%3A%2F%2Fcakework-frontend.fly.dev"// viper.GetString("FRONTEND_URL_AUTH0")
 
-	payload := strings.NewReader("client_id=" + AUTH0_CLIENT_ID + "&scope=openid offline_access add:task get:user create:user create:client_token get:status get:task_status create:machine %7D&audience=" + FRONTEND_URL_AUTH0)
+	payload := strings.NewReader("client_id=" + AUTH0_CLIENT_ID + "&scope=openid offline_access add:task get:user create:user create:client_token get:status get:task_status create:machine get:cli_secrets %7D&audience=" + FRONTEND_URL_AUTH0)
 	req, _ := http.NewRequest("POST", AUTH0_DEVICE_CODE_URL, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-	data, res, err := cwHttp.CallHttp(req)
-	if err != nil {
-		return err
-	}
+	res, err := cwHttp.CallHttpV2(req)
 
 	if res.StatusCode != 200 {
-		log.Debug(res.StatusCode)
-		log.Debug(res)
-		log.Debug(data)
 		return errors.New("Failed to log in using device code " + res.Status)
 	}
 
+	err = json.NewDecoder(res.Body).Decode(&data)
+	if err != nil {
+		return err
+	}
 	verificationUrl := data["verification_uri_complete"].(string)
-
 	deviceCode := data["device_code"].(string)
 	userCode := data["user_code"].(string)
 	fmt.Println("User code: " + userCode)
@@ -908,11 +935,15 @@ func signUpOrLogin() error {
 		log.Debug("payload to /token endpoint:")
 		req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-		data, res, err = cwHttp.CallHttp(req)
+		res, err = cwHttp.CallHttpV2(req)
 		if err != nil {
 			return err
 		}
 
+		err = json.NewDecoder(res.Body).Decode(&data)
+		if err != nil {
+			return err
+		}
 		if _, ok := data["access_token"]; ok {
 			log.Debug("Successfully got an access token!")
 			accessToken = data["access_token"].(string)
@@ -938,7 +969,7 @@ func signUpOrLogin() error {
 
 	req, _ = http.NewRequest("GET", AUTH0_USERINFO_URL, nil)
 
-	data, res, err = cwHttp.CallHttpAuthed(req, credsProvider)
+	res, err = cwHttp.CallHttpAuthedV2(req, credsProvider)
 	if err != nil {
 		return err
 	}
@@ -949,7 +980,10 @@ func signUpOrLogin() error {
 		log.Debug(data)
 		return errors.New("Failed to get user info " + res.Status)
 	}
-
+	err = json.NewDecoder(res.Body).Decode(&data)
+	if err != nil {
+		return err
+	}
 	sub := data["sub"].(string)
 	userId := strings.Split(sub, "|")[1]
 	config.UserId = userId

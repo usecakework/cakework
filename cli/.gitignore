@@ -19,5 +19,4 @@ dist/
 template
 build
 
-.env
 cli
