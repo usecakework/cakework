@@ -215,12 +215,6 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		memoryMB = req.MemoryMB
 	}
 
-	// TODO remove these dummy values
-	// req.UserId = "105349741723321386951"
-	// taskRun.App = "fly-machines"
-	// taskRun.Task = "say-hello"
-	// taskRun.RequestId = "my-request-id"
-
 	log.Infof("Spinning up a machine with parameters: %s, %s, %s, %d, %d", flyApp, req.RequestId, image, cpu, memoryMB)
 	machineConfig, err := fly.NewMachine(flyApp, req.RequestId, image, cpu, memoryMB)
 	if err != nil {
@@ -232,12 +226,22 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		return errors.New("Machine id of spun up machine is null; error occurred somewhere")
 	}
 
-	err = frontendClient.UpdateMachineId(req.UserId, req.App, req.RequestId, machineConfig.MachineId)
+	stmt, err := db.Prepare("UPDATE TaskRun SET machineId = ? WHERE requestId = ?")
+	checkErr(err)
 
-	if err != nil {
-		log.Error("Got an error while trying to update the machine id")
-		return err
+	res, e := stmt.Exec(machineConfig.MachineId, req.RequestId)
+	checkErr(e)
+
+	a, e := res.RowsAffected()
+	checkErr(e)
+	fmt.Printf("Updated %d rows", a)
+	if a == 0 {
+		// nothing was updated; row not found most likely (though can be due to some other error)
+		return errors.New("Failed to update machine id")
 	} else {
+		if err != nil {
+			return err
+		}
 		log.Info("Successfully updated machine id in db")
 	}
 
