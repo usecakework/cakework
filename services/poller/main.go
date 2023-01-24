@@ -268,6 +268,15 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		workerEndpoint = machineConfig.MachineId + ".vm." + flyApp + ".internal:50051"
 	}
 
+	// Add token to gRPC Request.
+	ctx := context.Background()
+	creds, err := frontendCredentialsProvider.GetCredentials() // TODO fix this so that we're not getting new tokens all the time and am actually storing the token in the provider
+	if err != nil {
+		log.Error("Failed to get credentials from frontend creds provider")
+		return err
+	}
+	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer " + creds.AccessToken)
+
 	log.Info("Attempting to send request to machine endpoint: " + workerEndpoint)
 	conn, err = grpc.Dial(workerEndpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool?
 
@@ -278,45 +287,33 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 	}
 	defer conn.Close()
 
-
-	// Add token to gRPC Request.
-	ctx := context.Background()
-	creds, err := frontendCredentialsProvider.GetCredentials() // TODO fix this so that we're not getting new tokens all the time and am actually storing the token in the provider
-	if err != nil {
-		log.Error("Failed to get credentials from frontend creds provider")
-		return err
-	}
-	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer " + creds.AccessToken)
-
 	c := pb.NewCakeworkClient(conn)
 	createReq := pb.Request{Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId}
 
-	_, errRunActivity := c.RunActivity(ctx, &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
-	if errRunActivity != nil {
-		// TODO check what type of error. possible to see if it's an rpc error?
-		fmt.Println("Error Cakework RunActivity")
+	retryCount := 0
 
-		fmt.Println(errRunActivity) // TODO log this as an error
-
-		frontendClient.UpdateStatus(req.UserId, req.App, req.RequestId, "FAILED")
-
-		// TODO: need to log the error to a database so that the user can see if when they're querying for the status (and result?)
-		return errRunActivity
-		// instead of restarting the error by throwing a fatal, just do something with this.
-		// set the status to failed?
-		// TODO need to be able to hook into frontend service to update the status
-
-	} else {
-		// successfully submitted; move to IN_PROGRESS
-		// note: the fly python grpc worker probably still need to be able to update the status
-		// what if this is updated to in progress but the python process sets to complete at the same time? should just let python deal with it.
-
-		// note: can ignore the response from the worker for now
-		// TODO: make sure don't print this out until we actually succeed
-		log.Println("Successfully submitted task to worker") // don't really need this
-
-		// log.Printf("Successfully submitted task to worker:  %s", response.Result) // don't really need this
-		// TODO: if fail, do not ack the request? but if we do so will the request get processed over and over again?
+	for {
+		_, err := c.RunActivity(ctx, &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
+		if err != nil {
+			log.Error("Error Cakework RunActivity")
+			log.Error(err)
+			log.Error("retry number: ")
+			log.Error(retryCount)
+			
+			retryCount = retryCount + 1
+			if retryCount < 5 {
+				time.Sleep(1 * time.Second)
+				log.Info("Retrying")
+			} else {
+				log.Error("Exhausted all retries")
+				frontendClient.UpdateStatus(req.UserId, req.App, req.RequestId, "FAILED")
+				return err
+			}
+		} else {
+			break
+		}
 	}
+	
+	log.Info("Successfully submitted task to worker")
 	return nil
 }

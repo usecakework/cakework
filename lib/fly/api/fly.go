@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"path"
 
@@ -127,8 +128,14 @@ func (fly *Fly) Wait(flyApp string, machineId string, state string) error {
 	}
 
 	defer res.Body.Close()
+	
+	_, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
 
 	if res.StatusCode == 200 {
+		log.Info("Fly machine reached " + state + " state")
 		return nil
 	} else {
 		log.Error(res)
