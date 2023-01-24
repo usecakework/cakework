@@ -767,7 +767,7 @@ if __name__ == "__main__":
 
     # You can persist this request ID to get status of the job later
     request_id = client.say_hello("from Cakework")
-	print("Your request id is " + request_id)
+    print("Your request id is " + request_id)
 
     status = client.get_status(request_id)
     while (status == "PENDING" or status == "IN_PROGRESS"):

@@ -1,11 +1,10 @@
 [project]
 name = "cakework"
-version = "0.0.39"
+version = "0.0.40"
 authors = [
   { name="Jessie Young", email="jessie@cakework.com" },
 ]
 description = "Cakework Python SDK"
-readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -16,7 +15,8 @@ classifiers = [
 dependencies = [
   "grpcio",
   "protobuf",
-  "requests"
+  "requests",
+  "dotenv"
 ]
 
 [project.urls]
