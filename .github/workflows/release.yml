@@ -16,6 +16,9 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    defaults:
+        run:
+            working-directory: ./cli/
     steps:
       - uses: actions/checkout@v3
         with:
