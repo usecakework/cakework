@@ -106,7 +106,7 @@ func main() {
 	app := &urfaveCli.App{
 		Name:     "cakework",
 		Usage:    "This is the Cakework command line interface",
-		Version:  "v1.0.87", // TODO automatically update this and tie this to the goreleaser version
+		Version:  "v1.0.88", // TODO automatically update this and tie this to the goreleaser version
 		Compiled: time.Now(),
 		Flags: []urfaveCli.Flag{
 			&urfaveCli.BoolFlag{Name: "verbose", Hidden: true},
