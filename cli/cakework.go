@@ -50,11 +50,11 @@ var configFile string
 var credsProvider auth.BearerCredentialsProvider
 
 func main() {
-	ex, err := os.Executable()                                                                                                             
-    if err != nil {                                                                                                                        
-        panic(err)                                                                                                                         
-    }                                                                                                                                      
-    exePath := filepath.Dir(ex)                                                                                                            
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exePath := filepath.Dir(ex)
 
 	var appName string
 	var language string
@@ -80,8 +80,6 @@ func main() {
 		viper.AddConfigPath(exePath)
 		err = viper.ReadInConfig()
 	}
-
-	fmt.Println("Got stage: " + stage) // TODO delete
 
 	if err != nil {
 		fmt.Println(fmt.Errorf("%w", err))
