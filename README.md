@@ -4,7 +4,7 @@
 <img src="https://cakework-logo.s3.us-west-2.amazonaws.com/favicon.png" width="150">
 </div>
 
-Cakework helps you build serverless async backends without needing to manage any infrastructure. Cakework is built for work that takes time or more compute such as file processing, data analysis, or report generation.
+Cakework helps you build serverless async backends with no cloud resources to manage. You launch a new backend in minutes, iterate with just your code and dependencies, and get everything you need to do devops. Each request to your backend runs on its own micro VM with no timeout limitations and CPU and memory you specify. Cakework is built for work that takes time or more compute such as file processing, data analysis, or report generation.
 
 # Documentation
 
