@@ -1,0 +1,9 @@
+default-group: external
+groups:
+  external:
+    generators:
+      - name: fernapi/fern-typescript-sdk
+        version: 0.0.255
+        output:
+            location: local-file-system
+            path: ./build 
