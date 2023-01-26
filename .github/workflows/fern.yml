@@ -1,0 +1,33 @@
+name: ci
+
+on: [push]
+
+jobs:
+  fern-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install Fern
+        run:  cd sdk && npm install -g fern-api
+
+      - name: Check Fern API is valid
+        run: fern check
+  
+  publish-sdks: 
+    needs: fern-check
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup node
+        uses: actions/setup-node@v3
+
+      - name: Generate TypeScript SDK
+        uses: fern generate --log-level debug
+      
+      - name: Publish TypeScript SDK
+        run: cd sdk/typescript && ./publish.sh
