@@ -25,6 +25,9 @@ jobs:
 
       - name: Setup node
         uses: actions/setup-node@v3
+
+      - name: Generate TypeScript SDK
+        uses: fern generate --log-level debug
       
       - name: Publish TypeScript SDK
         run: cd sdk/typescript && ./publish.sh
