@@ -6,4 +6,4 @@ groups:
         version: 0.0.262
         output:
           location: local-file-system
-          path: ../../typescript/src
+          path: ../../sdk/typescript/src
