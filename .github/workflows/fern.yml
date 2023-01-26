@@ -14,3 +14,17 @@ jobs:
 
       - name: Check Fern API is valid
         run: fern check
+  
+  publish-sdks: 
+    needs: fern-check
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup node
+        uses: actions/setup-node@v3
+      
+      - name: Publish TypeScript SDK
+        run: cd sdk/typescript && ./publish.sh
