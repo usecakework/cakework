@@ -65,3 +65,5 @@ errors:
     # type: RequestId
   UnauthorizedError:
     status-code: 401
+  InternalServerError:
+    status-code: 500
