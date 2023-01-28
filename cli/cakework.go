@@ -65,6 +65,7 @@ func main() {
 	var appName string
 	var language string
 	var appDirectory string
+	var headless bool = false
 
 	workingDirectory, _ := os.Getwd()
 	buildDirectory := workingDirectory
@@ -131,6 +132,9 @@ func main() {
 			{ // if don't get the result within x seconds, kill
 				Name:  "login", // TODO change this to signup. // TODO also create a logout
 				Usage: "Authenticate the Cakework CLI",
+				Flags: []urfaveCli.Flag{
+					&urfaveCli.BoolFlag{Name: "headless", Destination: &headless},
+				},
 				Action: func(cCtx *cli.Context) error {
 					if isLoggedIn(*config) {
 						fmt.Println("You are already logged in 🍰")
@@ -138,7 +142,7 @@ func main() {
 					}
 
 					// when we auth (sign up or log in) for the first time, obtain a set of tokens
-					err = signUpOrLogin()
+					err = signUpOrLogin(headless)
 					if err != nil {
 						return fmt.Errorf("Error signing up / logging in: %w", err)
 					}
@@ -150,14 +154,17 @@ func main() {
 			{
 				Name:  "signup", // TODO change this to signup. // TODO also create a logout
 				Usage: "Sign up for Cakework",
+				Flags: []urfaveCli.Flag{
+					&urfaveCli.BoolFlag{Name: "headless", Destination: &headless},
+				},
 				Action: func(cCtx *cli.Context) error {
 					if isLoggedIn(*config) {
 						fmt.Println("You are already logged in 🍰")
 						return nil
 					}
-					err := signUpOrLogin()
+					err := signUpOrLogin(headless)
 					if err != nil {
-						return fmt.Errorf("Error signing up : %w", err)
+						return fmt.Errorf("Error signing up: %w", err)
 					}
 
 					userId, err := getUserId(configFile)
@@ -168,7 +175,7 @@ func main() {
 					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
 					user, err := frontendClient.GetUser(userId)
 					if err != nil {
-						return fmt.Errorf("Error signing up : %w", err)
+						return fmt.Errorf("Error signing up: %w", err)
 					}
 
 					if user != nil {
@@ -838,7 +845,7 @@ func openBrowser(url string) error {
 	return err
 }
 
-func signUpOrLogin() error {
+func signUpOrLogin(headless bool) error {
 	log.Debug("Starting log in flow")
 	var data map[string]interface{}
 
@@ -864,15 +871,26 @@ func signUpOrLogin() error {
 	if err != nil {
 		return err
 	}
+	verificationUrlNotComplete := data["verification_uri"].(string)
 	verificationUrl := data["verification_uri_complete"].(string)
 	deviceCode := data["device_code"].(string)
 	userCode := data["user_code"].(string)
-	fmt.Println("User code: " + userCode)
 
-	err = openBrowser(verificationUrl)
-	if err != nil {
-		return err
+	fmt.Println("Your login code is: " + userCode)
+	if headless {
+		fmt.Println("Open the login website in a browser and enter your code:")
+		fmt.Println(verificationUrlNotComplete)
+	} else {
+		err = openBrowser(verificationUrl)
+		if err != nil {
+			fmt.Println("Open the login website in a browser and enter your code:")
+			fmt.Println(verificationUrlNotComplete)
+			return nil
+		}
 	}
+
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
+	s.Start()                                                   // Start the spinner
 
 	var accessToken string
 	var refreshToken string
@@ -942,6 +960,8 @@ func signUpOrLogin() error {
 	userId := strings.Split(sub, "|")[1]
 	config.UserId = userId
 	cwConfig.UpdateConfig(config, configFile)
+
+	s.Stop()
 
 	return nil
 }

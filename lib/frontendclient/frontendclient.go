@@ -76,9 +76,12 @@ func (client *Client) GetUser(userId string) (*types.User, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		var user types.User
 		json.Unmarshal(body, &user)
 		return &user, nil
+	} else if res.StatusCode == 404 {
+		return nil, nil
 	} else {
 		return nil, errors.New("Error getting user details." + res.Status)
 	}
@@ -100,7 +103,7 @@ func (client *Client) CreateUser(userId string) (*types.User, error) { // TODO c
 	if err != nil {
 		return nil, err
 	}
-	if res.StatusCode == 200 {
+	if res.StatusCode == 200 || res.StatusCode == 201 {
 		var user types.User
 		if err := json.Unmarshal(body, &user); err != nil {
 			return nil, err
