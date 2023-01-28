@@ -5,8 +5,8 @@ new:
 	@curl -sSL https://install.python-poetry.org | python3 -
 
 	@printf "`tput bold`Creating new Poetry project...`tput sgr0`\n"
-	$(HOME)/.local/bin/poetry new $(CAKEWORK_APP_NAME)
-	cd $(CAKEWORK_APP_NAME); $(HOME)/.local/bin/poetry env use system
+	@$(HOME)/.local/bin/poetry new $(CAKEWORK_APP_NAME)
+	@cd $(CAKEWORK_APP_NAME); $(HOME)/.local/bin/poetry env use system
 	@printf "\n\n"
 
 	@printf "`tput bold`Copying over important files...`tput sgr0`\n"
