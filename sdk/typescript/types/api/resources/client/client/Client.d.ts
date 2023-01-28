@@ -8,7 +8,7 @@ export declare namespace Client {
     interface Options {
         environment?: environments.CakeworkApiEnvironment | string;
         xApiKey?: core.Supplier<string>;
-        name: string;
+        project: string;
     }
 }
 export declare class Client {
@@ -28,5 +28,5 @@ export declare class Client {
      * Run a task
      * @throws {CakeworkApi.RunDoesNotExistError}
      */
-    run(request: CakeworkApi.RunRequest): Promise<CakeworkApi.RunId>;
+    run(project: CakeworkApi.Project, task: CakeworkApi.Task, request: CakeworkApi.RunRequest): Promise<CakeworkApi.RunId>;
 }

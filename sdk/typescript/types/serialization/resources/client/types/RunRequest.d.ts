@@ -7,7 +7,6 @@ import * as core from "../../../../core";
 export declare const RunRequest: core.serialization.ObjectSchema<serializers.RunRequest.Raw, CakeworkApi.RunRequest>;
 export declare namespace RunRequest {
     interface Raw {
-        task: serializers.Task.Raw;
         parameters?: serializers.Parameters.Raw | null;
         compute?: serializers.Compute.Raw | null;
     }

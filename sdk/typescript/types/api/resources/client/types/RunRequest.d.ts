@@ -3,7 +3,6 @@
  */
 import { CakeworkApi } from "../../../..";
 export interface RunRequest {
-    task: CakeworkApi.Task;
     parameters?: CakeworkApi.Parameters;
     compute?: CakeworkApi.Compute;
 }

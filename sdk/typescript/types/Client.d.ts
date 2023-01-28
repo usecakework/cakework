@@ -8,7 +8,7 @@ export declare namespace CakeworkApiClient {
     interface Options {
         environment?: environments.CakeworkApiEnvironment | string;
         xApiKey?: core.Supplier<string>;
-        name: string;
+        project: string;
     }
 }
 export declare class CakeworkApiClient {
