@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -38,19 +39,20 @@ import (
 	"github.com/usecakework/cakework/lib/types"
 )
 
-//go:embed Dockerfile
-var dockerfile embed.FS
+// TODO put stuff into templates for different languages
 
 //go:embed fly.toml
 var flyConfig embed.FS
 
-// TODO put stuff into templates for different languages
-
 //go:embed .env
 var envFile []byte
 
-//go:embed .gitignore_python
-var gitIgnore embed.FS // for python only! TODO fix
+//go:embed newprojfiles/Makefile
+var makefile embed.FS
+
+//go:embed newprojfiles/assets
+var assets embed.FS
+
 var config cwConfig.Config
 var configFile string
 var credsProvider auth.BearerCredentialsProvider
@@ -264,116 +266,89 @@ func main() {
 						return errors.New("Language " + lang + " not supported.")
 					}
 
-					fmt.Println("Creating your new Cakework project " + appName + "...")
+					fmt.Println("Creating your new Cakework project " + appName + "!")
+					fmt.Println("")
 
-					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
-					s.Start()                                                   // Start the spinner
+					// TODO make a separate cakework specific build directory and then copy everything out
 
-					err := os.Mkdir(appName, os.ModePerm)
+					rootDir := "newprojfiles"
+
+					// copy Makefile into current build directory
+					text, err := makefile.ReadFile(rootDir + "/Makefile")
 					if err != nil {
-						return fmt.Errorf("Error making directory for new project: %w", err)
+						return fmt.Errorf("Error getting required build assets: %w", err)
+					}
+					err = os.WriteFile(filepath.Join(appDirectory+"Makefile"), text, 6044)
+					if err != nil {
+						return fmt.Errorf("Error getting required build assets: %w", err)
 					}
 
-					appDirectory = filepath.Join(buildDirectory, appName)
-
-					text, err := gitIgnore.ReadFile(".gitignore_python")
+					assetsDir := rootDir + "/assets"
+					// copy all assets into current build directory
+					buildAssets, err := fs.ReadDir(assets, assetsDir)
 					if err != nil {
-						return fmt.Errorf("Error building gitignore file: %w", err)
+						return fmt.Errorf("Error getting required build assets: %w", err)
 					}
 
-					err = os.WriteFile(filepath.Join(appDirectory, ".gitignore"), text, 0644)
+					err = os.Mkdir("assets", os.ModePerm)
 					if err != nil {
-						return fmt.Errorf("Error building gitignore file: %w", err)
+						return fmt.Errorf("Error getting required build assets: %w", err)
 					}
 
-					srcDirectory := filepath.Join(appDirectory, "src")
+					for _, asset := range buildAssets {
 
-					err = os.Mkdir(srcDirectory, os.ModePerm)
-					if err != nil {
-						return fmt.Errorf("Error creating source directory: %w", err)
+						text, err := assets.ReadFile(assetsDir + "/" + asset.Name())
+						if err != nil {
+							return fmt.Errorf("Error getting required build assets: %w", err)
+						}
+
+						var name string = asset.Name()
+
+						// golang doesn't look for hidden files
+						if name[0:3] == "dot" {
+							name = "." + name[3:]
+						}
+
+						err = os.WriteFile(filepath.Join("assets", name), text, 6044)
+						if err != nil {
+							return fmt.Errorf("Error getting required build assets: %w", err)
+						}
 					}
 
-					main := `from cakework import Cakework
-import time
-
-def say_hello(name):
-	time.sleep(5)
-	return "Hello " + name + "!"
-
-if __name__ == "__main__":
-	cakework = Cakework("` + appName + `")
-	cakework.add_task(say_hello)
-`
-
-					f, err := os.Create(filepath.Join(srcDirectory, "main.py"))
+					// generate client token
+					userId, err := getUserId(configFile)
 					if err != nil {
-						return fmt.Errorf("Error creating main.py: %w", err)
+						return fmt.Errorf("Error getting user details to create a client token with: %w", err)
+					}
+					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+					clientToken, err := frontendClient.CreateClientToken(userId, appName)
+					if err != nil {
+						return fmt.Errorf("Error creating a client token: %w", err)
 					}
 
-					defer f.Close()
+					// clean up files no matter what
+					defer func() {
+						cleanCommand := "make clean"
+						cmd := exec.Command("bash", "-c", cleanCommand)
+						err = shell.RunCmdLive(cmd)
+						if err != nil {
+							fmt.Println("Error cleaning up temp assets")
+							os.Exit(1)
+						}
+					}()
 
-					f.WriteString(main)
-					f.Sync()
-
-					// copy Dockerfile into current build directory
-					text, err = dockerfile.ReadFile("Dockerfile")
+					// run makefile
+					makeCommand := "CAKEWORK_APP_NAME=" + appName + " CAKEWORK_CLIENT_TOKEN=" + clientToken.Token + " make new"
+					cmd := exec.Command("bash", "-c", makeCommand)
+					err = shell.RunCmdLive(cmd)
 					if err != nil {
-						return fmt.Errorf("Error creating Dockerfile: %w", err)
-					}
-					err = os.WriteFile(filepath.Join(appDirectory, "Dockerfile"), text, 0644)
-					if err != nil {
-						return fmt.Errorf("Error creating Dockerfile: %w", err)
-					}
-
-					// TODO debug why this isn't working. for now we have a workaround
-					f, err = os.Create(filepath.Join(appDirectory, ".dockerignore"))
-					if err != nil {
-						return fmt.Errorf("Error creating dockerignore: %w", err)
-					}
-					defer f.Close()
-
-					f.WriteString("env")
-					f.Sync()
-
-					// TODO check python version
-					cmd := exec.Command("python3", "-m", "venv", "env")
-					cmd.Dir = appDirectory
-					_, err = shell.RunCmd(cmd, "") // don't do anything with out?
-					if err != nil {
-						return fmt.Errorf("Error creating virtual env: %w", err)
+						return fmt.Errorf("Error creating a new project: %w", err)
 					}
 
-					cmd = exec.Command("bash", "-c", "source env/bin/activate && pip3 install --upgrade setuptools pip && pip3 install --force-reinstall cakework && pip3 install python-dotenv")
-					cmd.Dir = appDirectory
-					_, err = shell.RunCmd(cmd, "") // don't do anything with out?
-					if err != nil {
-						return fmt.Errorf("Error installing dependencies: %w", err)
-					}
+					// 					createExampleClient(appDirectory, appName)
 
-					cmd = exec.Command("bash", "-c", "source env/bin/activate; pip3 freeze")
-					cmd.Dir = appDirectory
+					// s.Stop()
 
-					// open the out file for writing
-					outfile, err := os.Create(filepath.Join(appDirectory, "requirements.txt"))
-					if err != nil {
-						return fmt.Errorf("Error creating requirements.txt: %w", err)
-					}
-
-					defer outfile.Close()
-					cmd.Stdout = outfile
-
-					err = cmd.Start()
-					if err != nil {
-						return fmt.Errorf("Error writing to requirements.txt: %w", err)
-					}
-					cmd.Wait()
-
-					createExampleClient(appDirectory, appName)
-
-					s.Stop()
-
-					// TODO: will say done even when error out. need to fix!
-					fmt.Println("Done creating your new project! 🍰")
 					return nil
 				},
 			},
@@ -407,20 +382,26 @@ if __name__ == "__main__":
 						return nil
 					}
 
+					// TODO this won't work if they change the folder name
+					srcDir := workingDirectory + "/" + filepath.Base(workingDirectory)
+
 					fmt.Println("Deploying Your Project...")
-					readFile, err := os.Open(filepath.Join(filepath.Join(workingDirectory, "src"), "main.py"))
+					readFile, err := os.Open(filepath.Join(srcDir, "main.py"))
 					if err != nil {
 						fmt.Println(err)
 						return fmt.Errorf("There was an error deploying your project. Please make sure you're in the project directory")
 					}
 
 					fileScanner := bufio.NewScanner(readFile)
-
 					fileScanner.Split(bufio.ScanLines)
 
 					var rgxAppName = regexp.MustCompile(`\(\"([^)]+)\"\)`)
-
 					var appName string
+
+					var rgxTaskName = regexp.MustCompile(`\(([^)]+)\)`)
+					var taskName string
+
+					defer readFile.Close()
 
 					// TODO this is janky. can now get app name from config; how to make this less janky for getting the registered activity name?
 					for fileScanner.Scan() {
@@ -431,37 +412,6 @@ if __name__ == "__main__":
 								appName = i[1]
 							}
 						}
-					}
-
-					if appName == "" {
-						return errors.New("Failed to parse project name from main.py. Please make sure you're in the project directory!")
-					}
-					readFile.Close()
-
-					// sanitize activity name and app name. in the future we don't need to do this anymore
-					appName = strings.ReplaceAll(strings.ToLower(appName), "_", "-") // in the future, infer these from the code
-
-					// TODO do input validation for not allowed characters
-					// userId := strings.ReplaceAll(strings.ToLower(cCtx.Args().First()), "_", "-") // in the future, infer these from the code
-
-					// parse main.py to get the app name and task name
-					// TODO: fix it so that we're not parsing python code from here
-					readFile, err = os.Open(filepath.Join(filepath.Join(workingDirectory, "src"), "main.py"))
-					if err != nil {
-						return fmt.Errorf("Error signing up: : %w", err)
-					}
-
-					fileScanner = bufio.NewScanner(readFile)
-
-					fileScanner.Split(bufio.ScanLines)
-
-					var rgxTaskName = regexp.MustCompile(`\(([^)]+)\)`)
-
-					var taskName string
-
-					// TODO this is janky. can now get app name from config; how to make this less janky for getting the registered activity name?
-					for fileScanner.Scan() {
-						line := fileScanner.Text()
 						if strings.Contains(line, "add_task") {
 							rs := rgxTaskName.FindAllStringSubmatch(line, -1)
 							for _, i := range rs {
@@ -470,16 +420,15 @@ if __name__ == "__main__":
 						}
 					}
 
+					if appName == "" {
+						return errors.New("Failed to parse project name from main.py. Please make sure you're in the project directory!")
+					}
 					if taskName == "" {
 						return cli.Exit("Failed to parse task name from main.py. Please make sure you're in the project directory!", 1)
 					}
-					readFile.Close()
-
-					// TODO: do we even need to store the app name in the config file?
 
 					// sanitize activity name and app name. in the future we don't need to do this anymore
-					appName = strings.ReplaceAll(strings.ToLower(appName), "_", "-") // in the future, infer these from the code
-
+					appName = strings.ReplaceAll(strings.ToLower(appName), "_", "-")   // in the future, infer these from the code
 					taskName = strings.ReplaceAll(strings.ToLower(taskName), "_", "-") // in the future, infer these from the code
 
 					userId, err := getUserId(configFile)

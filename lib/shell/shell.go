@@ -1,10 +1,12 @@
 package shell
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -26,6 +28,43 @@ func RunCmdSilent(cmd *exec.Cmd, directory string) (string, error) {
 		return allOutput, err
 	}
 	return allOutput, nil
+}
+
+func RunCmdLive(cmd *exec.Cmd) error {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	// merge stderr into stdout
+	cmd.Stderr = cmd.Stdout
+
+	defer stdout.Close()
+	buf := bufio.NewReader(stdout)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	for {
+		str, err := buf.ReadString('\n')
+		// TODO look for specific eof err
+		if err != nil {
+			break
+		}
+		fmt.Print(str)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				log.Debug("Exit Status: ", status.ExitStatus())
+				return err
+			}
+		}
+		return err
+	}
+
+	return nil
 }
 
 // execute a command and print out outputs
