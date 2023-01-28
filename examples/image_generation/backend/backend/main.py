@@ -6,11 +6,11 @@ from PIL import Image
 import boto3
 from nanoid import generate
 
-# AWS_ACCESS_KEY_ID = "YOUR_ACCESS_KEY_ID"
-# AWS_SECRET_ACCESS_KEY = "YOUR_SECRET_KEY"
-# AWS_BUCKET = "YOUR_AWS_BUCKET"
-# BANANA_API_KEY = "YOUR_API_KEY"
-# BANANA_MODEL_KEY = "YOUR_MODEL_KEY"
+AWS_ACCESS_KEY_ID = "YOUR_ACCESS_KEY_ID"
+AWS_SECRET_ACCESS_KEY = "YOUR_SECRET_KEY"
+AWS_BUCKET = "YOUR_AWS_BUCKET"
+BANANA_API_KEY = "YOUR_API_KEY"
+BANANA_MODEL_KEY = "YOUR_MODEL_KEY"
 
 # Run image generation model, returning the image as bytes.
 # We are running stable diffusion hosted on banana.
@@ -62,5 +62,5 @@ def generate_image(object, style):
     }
 
 if __name__ == "__main__":
-    app = Cakework("image_generation")
+    app = Cakework("backend")
     app.add_task(generate_image)
