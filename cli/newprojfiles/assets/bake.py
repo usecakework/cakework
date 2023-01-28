@@ -7,7 +7,7 @@ if __name__ == "__main__":
     with p.open('r') as f:
         CAKEWORK_CLIENT_TOKEN = f.readline().strip('\n')
 
-        client = Client("` + appName + `", CAKEWORK_CLIENT_TOKEN)
+        client = Client("REPLACE_APPNAME", CAKEWORK_CLIENT_TOKEN)
 
         # You can persist this request ID to get status of the job later
         request_id = client.say_hello("from Cakework")

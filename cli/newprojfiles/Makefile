@@ -21,6 +21,7 @@ new:
 	@sed -i '' 's/REPLACE_APPNAME/$(CAKEWORK_APP_NAME)/g' assets/Dockerfile
 	@cp assets/Dockerfile $(CAKEWORK_APP_NAME)/Dockerfile
 
+	@sed -i '' 's/REPLACE_APPNAME/$(CAKEWORK_APP_NAME)/g' assets/bake.py
 	@cp assets/bake.py $(CAKEWORK_APP_NAME)/tests/bake.py
 	
 	@printf "\n\n"
