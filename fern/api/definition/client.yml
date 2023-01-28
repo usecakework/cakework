@@ -15,7 +15,6 @@ types:
   RunResult: unknown    
   RunRequest:
     properties:
-      task: Task
       parameters: optional<Parameters>
       compute: optional<Compute>
   Compute:
@@ -51,7 +50,10 @@ services:
         run:
           docs: Run a task
           method: POST
-          path: /runs
+          path: /projects/{project}/tasks/{task}/runs
+          path-parameters:
+            project: Project
+            task: Task
           request: RunRequest
           response: 
             type: RunId
@@ -62,8 +64,9 @@ services:
 errors:
   RunDoesNotExistError:
     status-code: 404
-    # type: RequestId
   UnauthorizedError:
     status-code: 401
   InternalServerError:
     status-code: 500
+  BadRequest:
+    status-code: 400
