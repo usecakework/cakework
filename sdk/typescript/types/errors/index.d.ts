@@ -1,2 +1,2 @@
-export { JessieYoungApiError } from "./JessieYoungApiError";
-export { JessieYoungApiTimeoutError } from "./JessieYoungApiTimeoutError";
+export { CakeworkApiError } from "./CakeworkApiError";
+export { CakeworkApiTimeoutError } from "./CakeworkApiTimeoutError";

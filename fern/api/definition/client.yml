@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fern-api/fern/main/fern.schema.json
+
+types:
+  UserId: string
+  Project: string
+  Task: string
+  RunId: string
+  Status:
+    enum:
+      - PENDING
+      - IN_PROGRESS
+      - SUCCEEDED
+      - FAILED
+  Parameters: list<unknown>
+  RunResult: unknown    
+  RunRequest:
+    properties:
+      task: Task
+      parameters: optional<Parameters>
+      compute: optional<Compute>
+  Compute:
+    properties:
+      cpu: optional<integer>
+      memory: optional<integer>
+
+services:
+  http:
+    ClientService:
+      auth: true
+      base-path: /client
+      endpoints:
+
+        getRunStatus:
+          docs: Get the status of a run
+          method: GET
+          path: /runs/{runId}/status
+          path-parameters:
+            runId: RunId
+          response: Status
+          errors:
+            - RunDoesNotExistError
+        getRunResult:
+          docs: Get the result of a run
+          method: GET
+          path: /runs/{runId}/result
+          path-parameters:
+            runId: RunId
+          response: RunResult
+          errors:
+            - RunDoesNotExistError
+        run:
+          docs: Run a task
+          method: POST
+          path: /runs
+          request: RunRequest
+          response: 
+            type: RunId
+            docs: Returns newly created run
+          errors:
+            - RunDoesNotExistError
+
+errors:
+  RunDoesNotExistError:
+    status-code: 404
+    # type: RequestId
+  UnauthorizedError:
+    status-code: 401

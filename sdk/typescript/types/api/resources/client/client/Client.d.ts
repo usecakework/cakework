@@ -8,17 +8,25 @@ export declare namespace Client {
     interface Options {
         environment?: environments.CakeworkApiEnvironment | string;
         xApiKey?: core.Supplier<string>;
+        name: string;
     }
 }
 export declare class Client {
     private readonly options;
     constructor(options: Client.Options);
     /**
-     * Add a movie to the database
+     * Get the status of a run
+     * @throws {CakeworkApi.RunDoesNotExistError}
      */
-    createMovie(request: CakeworkApi.CreateMovieRequest): Promise<CakeworkApi.MovieId>;
+    getRunStatus(runId: CakeworkApi.RunId): Promise<CakeworkApi.Status>;
     /**
-     * @throws {CakeworkApi.MovieDoesNotExistError}
+     * Get the result of a run
+     * @throws {CakeworkApi.RunDoesNotExistError}
      */
-    getMovie(movieId: CakeworkApi.MovieId): Promise<CakeworkApi.Movie>;
+    getRunResult(runId: CakeworkApi.RunId): Promise<CakeworkApi.RunResult | undefined>;
+    /**
+     * Run a task
+     * @throws {CakeworkApi.RunDoesNotExistError}
+     */
+    run(request: CakeworkApi.RunRequest): Promise<CakeworkApi.RunId>;
 }

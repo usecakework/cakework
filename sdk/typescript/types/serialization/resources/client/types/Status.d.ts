@@ -4,7 +4,7 @@
 import * as serializers from "../../..";
 import { CakeworkApi } from "../../../..";
 import * as core from "../../../../core";
-export declare const MovieId: core.serialization.Schema<serializers.MovieId.Raw, CakeworkApi.MovieId>;
-export declare namespace MovieId {
-    type Raw = string;
+export declare const Status: core.serialization.Schema<serializers.Status.Raw, CakeworkApi.Status>;
+export declare namespace Status {
+    type Raw = "PENDING" | "IN_PROGRESS" | "SUCCEEDED" | "FAILED";
 }

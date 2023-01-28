@@ -17,6 +17,28 @@ type Request struct {
 	UpdatedAt  int64  `json:"updated_at"`
 }
 
+type RunRequest struct {
+	Task       string `json:"task"`
+	Parameters []interface{} `json:"parameters"`
+	CPU        int    `json:"cpu"`
+	Memory   int    `json:"memory"`
+}
+
+type Task struct {
+	RequestId  string `json:"requestId"`
+	UserId     string `json:"userId"`
+	App        string `json:"app"`
+	Task       string `json:"task"`
+	Status     string `json:"status"`
+	Parameters string `json:"parameters"`
+	Result     string `json:"result"`
+	CPU        int    `json:"cpu"`
+	MemoryMB   int    `json:"memory"`
+	MachineId  string `json:"machineId"`
+	CreatedAt  int64  `json:"created_at"`
+	UpdatedAt  int64  `json:"updated_at"`
+}
+
 type Compute struct {
 	CPU      string `json:"cpu"`
 	MemoryMB string `json:"memoryMB"`

@@ -1,3 +1,4 @@
-export * as JessieYoungApi from "./api";
-export { JessieYoungApiClient } from "./Client";
-export { JessieYoungApiError, JessieYoungApiTimeoutError } from "./errors";
+export * as CakeworkApi from "./api";
+export { CakeworkApiClient } from "./Client";
+export { CakeworkApiEnvironment } from "./environments";
+export { CakeworkApiError, CakeworkApiTimeoutError } from "./errors";

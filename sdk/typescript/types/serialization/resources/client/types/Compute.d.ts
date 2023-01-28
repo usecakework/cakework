@@ -4,11 +4,10 @@
 import * as serializers from "../../..";
 import { CakeworkApi } from "../../../..";
 import * as core from "../../../../core";
-export declare const Movie: core.serialization.ObjectSchema<serializers.Movie.Raw, CakeworkApi.Movie>;
-export declare namespace Movie {
+export declare const Compute: core.serialization.ObjectSchema<serializers.Compute.Raw, CakeworkApi.Compute>;
+export declare namespace Compute {
     interface Raw {
-        id: serializers.MovieId.Raw;
-        title: string;
-        rating: number;
+        cpu?: number | null;
+        memory?: number | null;
     }
 }

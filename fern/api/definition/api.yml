@@ -1,3 +1,14 @@
 name: api
+headers:
+  name: string
+auth: ClientAccessToken
+auth-schemes:
+  ClientAccessToken:
+    header: X-Api-Key
+    type: string
+environments:
+  Production: https://cakework-frontend.fly.dev
+  Local: http://localhost:8080
+default-environment: Local
 error-discrimination:
   strategy: status-code

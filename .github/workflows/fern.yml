@@ -30,4 +30,7 @@ jobs:
         uses: fern generate --log-level debug
       
       - name: Publish TypeScript SDK
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
         run: cd sdk/typescript && ./publish.sh

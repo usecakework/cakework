@@ -1,6 +1,6 @@
 {
-    "name": "@fern-api/imdb",
-    "version": "0.0.9",
+    "name": "@cakework/client",
+    "version": "0.0.15",
     "files": [
         "dist",
         "types",

@@ -203,6 +203,10 @@ func main() {
 		apiKeyProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken) // user never actually invokes this, but our client library needs to
 		apiKeyProtectedGroup.PATCH("/update-status", updateStatus)                                   // TODO change to POST /request/status/requestId
 		apiKeyProtectedGroup.PATCH("/update-result", updateResult)                                   // TODO change to POST /request/result/requestId
+	
+		apiKeyProtectedGroup.GET("/runs/:runId/status", getRunStatus) // TODO migrate to getStatus
+		apiKeyProtectedGroup.GET("/runs/:runId/result", getRunResult)
+		apiKeyProtectedGroup.POST("/runs/", run)
 	}
 
 	router.Run()
@@ -238,10 +242,6 @@ func guidMiddleware() gin.HandlerFunc {
 		log.Debug(cwHttp.PrettyPrintRequest(c.Request))
 		log.Debug(c.Request.Host)
 
-		if err != nil {
-			log.Error("Got error while printing request")
-			log.Error(err)
-		}
 		c.Next()
 		log.Printf("Request finished: %s\n", uuid)
 	}
@@ -272,9 +272,9 @@ func submitTask(c *gin.Context) {
 	req.Status = "PENDING"
 
 	// enqueue this message
-	if createRequest(req) != nil { // TODO check whether this is an err; if so, return different status code
+	if enqueue(req) != nil { // TODO check whether this is an err; if so, return different status code
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "Internal server error"}) // TODO expose better errors
 	} else {
 		c.IndentedJSON(http.StatusCreated, req)
 	}
@@ -292,7 +292,7 @@ func handleGetRequestLogs(c *gin.Context) {
 		return
 	}
 
-	requestDetails, err := getRequestDetails(db, newGetRequestLogsRequest.RequestId)
+	requestDetails, err := getRun(db, newGetRequestLogsRequest.RequestId)
 
 	if err != nil {
 		fmt.Println(err)
@@ -359,14 +359,16 @@ func getStatus(c *gin.Context) {
 		return
 	}
 
-	request, err := getRequestDetails(db, newGetStatusRequest.RequestId)
+	request, err := getRun(db, newGetStatusRequest.RequestId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetStatusRequest.RequestId + " not found"})
+			return
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "sorry :( something broke, come talk to us"}) // TODO expose better errors
+			return
 		}
 	} else {
 		response := types.GetStatusResponse{
@@ -400,14 +402,14 @@ func getResult(c *gin.Context) {
 		return
 	}
 
-	request, err := getRequestDetails(db, newGetResultRequest.RequestId)
+	request, err := getRun(db, newGetResultRequest.RequestId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RequestId + " not found"})
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "sorry :( something broke, come talk to us"}) // TODO expose better errors
 		}
 	} else {
 		response := types.GetResultResponse{
@@ -539,7 +541,7 @@ func updateMachineId(c *gin.Context) {
 }
 
 // no need to add scope checking here, as this is not directly invoked by a route
-func createRequest(req types.Request) error {
+func enqueue(req types.Request) error {
 	reqJSON, _ := json.Marshal(req)
 
 	_, err := js.Publish(subjectName, reqJSON)
@@ -789,5 +791,130 @@ func createMachine(c *gin.Context) {
 	} else {
 		log.Info("Successfully inserted")
 		c.IndentedJSON(http.StatusCreated, req)
+	}
+}
+
+// new refactor using REST API patterns
+// TODO take i the project id
+func getRunStatus(c *gin.Context) {
+	runId := c.Param("runId") 
+	// get project and user id from the headers
+	// TODO cache the info about the user id 
+	
+	// apiKey := c.Request.Header.Get("X-Api-Key") // TODO refactor to middleware
+	// userId, err := getUserFromAPIKey(apiKey)
+	// if err != nil {
+	// 	c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+	// 	return
+	// }
+
+	// TODO add userId and project id to the requestDetails call
+
+	// project := c.Request.Header.Get("project")
+
+	request, err := getRun(db, runId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("no request with request id found")
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + runId + " not found"})
+			return	
+		} else {
+			log.Error(err)
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"}) // TODO expose better errors
+			return
+		}
+	} else {
+		log.Debug("Got a request: ")
+		log.Debug(request)
+		c.IndentedJSON(http.StatusOK, request.Status)
+		return
+	}
+}
+
+// new refactor using REST API patterns
+// TODO take i the project id
+func getRunResult(c *gin.Context) {
+	runId := c.Param("runId")
+
+	request, err := getRun(db, runId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + runId + " not found"})
+			return	
+		} else {
+			log.Error(err)
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Internal server error"}) // TODO expose better errors
+			return
+		}
+	} else {
+		log.Debug("Got a request: ")
+		log.Debug(request)
+		c.IndentedJSON(http.StatusOK, request.Result)
+		return
+	}
+}
+
+// TODO have this throw error?
+func run(c *gin.Context) {
+	// TODO check if app exists; if not, throw an error
+	var runReq types.RunRequest
+	// get user id and project from the headers
+	clientToken := c.Request.Header.Get("X-Api-Key")
+	userId, err := getUserFromAPIKey(clientToken)
+	if err != nil {
+		log.Error("Error getting user id from client token")
+		log.Error(err)
+		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+	}
+
+	log.Debug("user id: " + userId.Id)
+
+	if err := c.BindJSON(&runReq); err != nil {
+		fmt.Println("got error reading in request")
+		fmt.Println(err)
+		return
+	}
+
+	project := util.SanitizeAppName(c.Request.Header.Get("name"))
+	// userId := "dummy"
+	// app := "myapp"
+	task := util.SanitizeTaskName(runReq.Task)
+	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
+	// TODO hardcode stuff for now!! 
+	// sanitize; convert app and task name to lower case, only hyphens
+	// userId := strings.Replace(strings.ToLower(req.UserId), "_", "-", -1)
+	// app := strings.Replace(strings.ToLower(req.App), "_", "-", -1)
+	// task := strings.Replace(strings.ToLower(req.Task), "_", "-", -1)
+
+	// req.UserId = userId
+	// req.App = app
+	// log.Debug(runReq.Parameters)
+	// for _, value := range runReq.Parameters {
+	// 	log.Debug(value)
+	// 	fmt.Printf("t1: %T\n", value	)
+	//   }
+
+	var req types.Request
+	req.Task = task
+	req.RequestId = (uuid.New()).String()
+	req.App = project
+	req.CPU = runReq.CPU
+	req.MemoryMB = runReq.Memory
+	req.UserId = userId.Id
+	req.Status = "PENDING"
+	
+	// serialize to json based on the type
+	byteSlice, _ := json.Marshal(runReq.Parameters)
+	req.Parameters = string(byteSlice)
+
+
+	log.Debugf("%+v\n", req)
+	if enqueue(req) != nil { // TODO check whether this is an err; if so, return different status code
+		log.Error(err)
+		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		return
+	} else {
+		c.IndentedJSON(http.StatusCreated, req)
+		return
 	}
 }

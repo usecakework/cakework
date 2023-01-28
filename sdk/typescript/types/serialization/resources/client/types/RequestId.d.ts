@@ -4,7 +4,7 @@
 import * as serializers from "../../..";
 import { CakeworkApi } from "../../../..";
 import * as core from "../../../../core";
-export declare const MovieId: core.serialization.Schema<serializers.MovieId.Raw, CakeworkApi.MovieId>;
-export declare namespace MovieId {
+export declare const RequestId: core.serialization.Schema<serializers.RequestId.Raw, CakeworkApi.RequestId>;
+export declare namespace RequestId {
     type Raw = string;
 }

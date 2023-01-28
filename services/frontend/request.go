@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/usecakework/cakework/lib/fly"
 	"github.com/usecakework/cakework/lib/types"
 )
@@ -27,7 +28,7 @@ func getRequestLogs(userId string, appName string, taskName string, machineId st
 }
 
 // Get details about a request. Returns nil if request is not found.
-func getRequestDetails(db *sql.DB, requestId string) (*types.Request, error) {
+func getRun(db *sql.DB, requestId string) (*types.Request, error) {
 	// TODO use the userId and app
 	var request types.Request
 	var result sql.NullString
@@ -36,12 +37,13 @@ func getRequestDetails(db *sql.DB, requestId string) (*types.Request, error) {
 	var updatedAt time.Time
 	err := db.QueryRow("SELECT userId, app, task, parameters, requestId, machineId, status, result, createdAt, updatedAt FROM TaskRun where requestId = ?", requestId).Scan(&request.UserId, &request.App, &request.Task, &request.Parameters, &request.RequestId, &machineId, &request.Status, &result, &createdAt, &updatedAt)
 	if err != nil {
+		log.Debug("Got an error trying to query")
+		log.Error(err)
 		if err.Error() == sql.ErrNoRows.Error() {
-			return nil, nil
-		} else {
-			return nil, err
+			log.Debug("go no rows")
+			
 		}
-
+		return nil, err
 	}
 
 	if result.Valid {
