@@ -13,15 +13,15 @@ new:
 
 	@cp assets/.gitignore $(CAKEWORK_APP_NAME)/.gitignore
 	
-	@sed -i '' 's/REPLACE_APPNAME/$(CAKEWORK_APP_NAME)/g' assets/main.py
+	@sed -i'' -e 's/REPLACE_APPNAME/$(CAKEWORK_APP_NAME)/g' assets/main.py
 	@echo $(CAKEWORK_APP_NAME) | sed 's/-/_/g' | xargs -I '{}' cp assets/main.py $(CAKEWORK_APP_NAME)/{}/main.py
 
 	@cd $(CAKEWORK_APP_NAME); $(HOME)/.local/bin/poetry env info | grep -Eo '[0-9]{1,}.[0-9]{1,}' -m 1 | xargs -I '{}' sed -i '' 's/REPLACE_PYTHONVERSION/{}/g' ../assets/Dockerfile
-	@$(HOME)/.local/bin/poetry --version | grep -Eo '[0-9]{1,}.[0-9]{1,}.[0-9]{1,}' | xargs -I '{}' sed -i '' 's/REPLACE_POETRYVERSION/{}/g' assets/Dockerfile
-	@echo $(CAKEWORK_APP_NAME) | sed 's/-/_/g' | xargs -I '{}' sed -i '' 's/REPLACE_APPNAME/{}/g' assets/Dockerfile
+	@$(HOME)/.local/bin/poetry --version | grep -Eo '[0-9]{1,}.[0-9]{1,}.[0-9]{1,}' | xargs -I '{}' sed -i'' -e 's/REPLACE_POETRYVERSION/{}/g' assets/Dockerfile
+	@echo $(CAKEWORK_APP_NAME) | sed 's/-/_/g' | xargs -I '{}' sed -i'' -e 's/REPLACE_APPNAME/{}/g' assets/Dockerfile
 	@cp assets/Dockerfile $(CAKEWORK_APP_NAME)/Dockerfile
 
-	@sed -i '' 's/REPLACE_APPNAME/$(CAKEWORK_APP_NAME)/g' assets/bake.py
+	@sed -i'' -e 's/REPLACE_APPNAME/$(CAKEWORK_APP_NAME)/g' assets/bake.py
 	@cp assets/bake.py $(CAKEWORK_APP_NAME)/tests/bake.py
 	
 	@printf "\n\n"
