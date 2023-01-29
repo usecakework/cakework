@@ -16,3 +16,4 @@ main
 cakework
 frontend
 .DS_STORE
+.env
