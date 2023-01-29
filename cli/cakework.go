@@ -572,9 +572,10 @@ func main() {
 							}
 
 							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
+							
 							taskLogs, err := frontendClient.GetTaskLogs(userId, appName, taskName, statusFilter)
 							if err != nil {
-								return fmt.Errorf("Could not get run logs: %w", err)
+								return fmt.Errorf("Could not get task logs: %w", err)
 							}
 
 							if len(taskLogs.Runs) == 0 {
@@ -603,13 +604,13 @@ func main() {
 				},
 			},
 			{
-				Name:  "request",
-				Usage: "Interact with your Requests (e.g. get logs)",
+				Name:  "run",
+				Usage: "Interact with your Runs (e.g. get logs)",
 				Subcommands: []*cli.Command{
 					{
 						Name:      "status",
-						Usage:     "Get processing status for a Request",
-						UsageText: "cakework request status [REQUEST_ID]",
+						Usage:     "Get processing status for a Run",
+						UsageText: "cakework run status [RUN_ID]",
 						Action: func(cCtx *cli.Context) error {
 							if !isLoggedIn(*config) {
 								fmt.Println("Please signup (cakework signup) or log in (cakework login).")
@@ -617,7 +618,7 @@ func main() {
 							}
 
 							if cCtx.NArg() != 1 {
-								return errors.New("Please include one parameter, the Request ID")
+								return errors.New("Please include one parameter, the Run ID")
 							}
 							runId := cCtx.Args().Get(0)
 
@@ -633,7 +634,7 @@ func main() {
 							}
 
 							if requestStatus == "" {
-								fmt.Println("Request not found. Please check your Request Id.")
+								fmt.Println("Request not found. Please check your Run Id.")
 								return nil
 							}
 
@@ -643,8 +644,8 @@ func main() {
 					},
 					{
 						Name:      "logs",
-						Usage:     "Get logs for a Request",
-						UsageText: "cakework request logs [REQUEST_ID]",
+						Usage:     "Get logs for a Run",
+						UsageText: "cakework run logs [RUN_ID]",
 						Action: func(cCtx *cli.Context) error {
 							if !isLoggedIn(*config) {
 								fmt.Println("Please signup (cakework signup) or log in (cakework login).")
@@ -652,7 +653,7 @@ func main() {
 							}
 
 							if cCtx.NArg() != 1 {
-								return errors.New("Please include one parameter, the Request ID")
+								return errors.New("Please include one parameter, the Run ID")
 							}
 							runId := cCtx.Args().Get(0)
 
@@ -672,12 +673,12 @@ func main() {
 							}
 
 							if requestLogs == nil {
-								fmt.Println("Request not found. Please check your Request Id.")
+								fmt.Println("Request not found. Please check your Run Id.")
 								return nil
 							}
 
 							if len(requestLogs.LogLines) == 0 {
-								fmt.Println("No logs found for this request.")
+								fmt.Println("No logs found for this run.")
 								return nil
 							}
 

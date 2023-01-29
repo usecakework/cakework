@@ -206,7 +206,7 @@ func (client *Client) GetRunLogs(userId string, runId string) (*types.RunLogs, e
 }
 
 func (client *Client) GetTaskLogs(userId string, projectName string, taskName string, statusFilter string) (types.TaskLogs, error) {
-	url := client.Url + "/task/logs"
+	url := client.Url + "/projects/" + projectName + "/tasks/" + taskName + "/logs"
 	getTaskLogsRequest := types.GetTaskLogsRequest{
 		UserId:       userId,
 		Project:      projectName,

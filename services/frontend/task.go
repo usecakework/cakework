@@ -14,9 +14,9 @@ func GetTaskLogs(db *sql.DB, userId string, project string, taskName string, sta
 	var err error
 
 	if statusFilter == "" {
-		rows, err = db.Query("SELECT runId, status, parameters, result, createdAt, updatedAt FROM TaskRun where userId = ? AND project = ? AND task = ? ORDER BY updatedAt DESC LIMIT 100", userId, project, taskName)
+		rows, err = db.Query("SELECT runId, status, parameters, result, createdAt, updatedAt FROM Run where userId = ? AND project = ? AND task = ? ORDER BY updatedAt DESC LIMIT 100", userId, project, taskName)
 	} else {
-		rows, err = db.Query("SELECT runId, status, parameters, result, createdAt, updatedAt FROM TaskRun where userId = ? AND project = ? AND task = ? AND status = ? ORDER BY updatedAt DESC LIMIT 100", userId, project, taskName, statusFilter)
+		rows, err = db.Query("SELECT runId, status, parameters, result, createdAt, updatedAt FROM Run where userId = ? AND project = ? AND task = ? AND status = ? ORDER BY updatedAt DESC LIMIT 100", userId, project, taskName, statusFilter)
 	}
 
 	if err != nil {
