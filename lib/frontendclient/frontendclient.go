@@ -32,7 +32,7 @@ func New(url string, credentialsProvider auth.CredentialsProvider) *Client {
 func (client *Client) CreateMachine(userId string, project string, task string, name string, machineId string, state string, image string, source string) error {
 	flyApp := fly.GetFlyAppName(userId, project, task)
 
-	url := client.Url + "/projects/" + project + "/tasks" + task + "/machines"
+	url := client.Url + "/projects/" + project + "/tasks/" + task + "/machines"
 	req := types.CreateMachineRequest{
 		UserId:    userId,
 		Project:   project,

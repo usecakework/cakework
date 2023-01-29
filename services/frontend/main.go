@@ -173,13 +173,12 @@ func main() {
 		jwtProtectedGroup.GET("/cli-secrets", handleGetCLISecrets, jwtTokenMiddleware("external")) // TODO remove this in the future once we have our own build server
 		jwtProtectedGroup.GET("/projects/:project/tasks/:task/logs", handleGetTaskLogs, jwtTokenMiddleware("external"))                              
 		jwtProtectedGroup.GET("/runs/:runId/logs", handleGetRunLogs, jwtTokenMiddleware("external"))
+		jwtProtectedGroup.POST("/projects/:project/tasks/:task/machines", handleCreateMachine, jwtTokenMiddleware("external"))
 
 		// only internal services can call
 		jwtProtectedGroup.POST("/runs/:runId/status", handleUpdateRunStatus, jwtTokenMiddleware("internal"))                             
 		jwtProtectedGroup.POST("/runs/:runId/result", handleUpdateRunResult, jwtTokenMiddleware("internal"))                            
 		jwtProtectedGroup.POST("/runs/:runId/machineId", handleUpdateMachineId, jwtTokenMiddleware("internal"))
-
-		jwtProtectedGroup.POST("/projects/:project/tasks/:task/machines", handleCreateMachine, jwtTokenMiddleware("internal"))
 	}
 
 	apiKeyProtectedGroup := router.Group("/client", apiKeyMiddleware())
@@ -352,9 +351,11 @@ func getResult(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RunId + " not found"})
+			return
 		} else {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
+			return
 		}
 	} else {
 		response := types.GetRunResultResponse{
@@ -398,6 +399,7 @@ func handleUpdateRunStatus(c *gin.Context) {
 		if err != nil {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
+			return
 		} else {
 			c.Status(http.StatusOK)
 		}
@@ -451,6 +453,7 @@ func handleUpdateMachineId(c *gin.Context) {
 		fmt.Println("got error reading in request")
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
+		return
 	}
 
 	// TODO verify that we aren't overwriting anything
@@ -567,12 +570,14 @@ func handleCreateClientToken(c *gin.Context) {
 	if err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
+		return
 	} else {
 		c.IndentedJSON(http.StatusCreated, clientToken)
 	}
@@ -595,6 +600,7 @@ func handleCreateUser(c *gin.Context) {
 	if err := c.BindJSON(&newRequest); err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
@@ -611,10 +617,12 @@ func handleCreateUser(c *gin.Context) {
 	if err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
 		// log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
@@ -643,9 +651,11 @@ func handleGetUserFromClientToken(c *gin.Context) {
 		log.Error(err)
 		if err.Error() == sql.ErrNoRows.Error() {
 			c.IndentedJSON(http.StatusBadRequest, "Please provide a valid client token.")
+			return
 		} else {
 			log.Debug("TODO catch the specific error (such as access denied)")
 			c.IndentedJSON(http.StatusInternalServerError, "Something went wrong :( Please contact us.")
+			return
 		}
 	} else {
 		c.IndentedJSON(http.StatusOK, user)
@@ -672,9 +682,11 @@ func handleGetUser(c *gin.Context) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user with id not found"})
+			return
 		} else {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+			return
 		}
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
 	} else {
@@ -708,6 +720,7 @@ func handleCreateMachine(c *gin.Context) {
 	if err := c.BindJSON(&req); err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
@@ -724,11 +737,13 @@ func handleCreateMachine(c *gin.Context) {
 	if err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
+		return
 	} else {
 		log.Info("Successfully inserted")
 		c.IndentedJSON(http.StatusCreated, req)

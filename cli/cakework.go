@@ -322,6 +322,17 @@ func main() {
 						}
 					}
 
+					// clean up files no matter what
+					defer func() {
+						cleanCommand := "make clean"
+						cmd := exec.Command("bash", "-c", cleanCommand)
+						err = shell.RunCmdLive(cmd)
+						if err != nil {
+							fmt.Println("Error cleaning up temp assets")
+							os.Exit(1)
+						}
+					}()
+
 					// generate client token
 					userId, err := getUserId(configFile)
 					if err != nil {
@@ -333,16 +344,10 @@ func main() {
 						return fmt.Errorf("Error creating a client token: %w", err)
 					}
 
-					// clean up files no matter what
-					defer func() {
-						cleanCommand := "make clean"
-						cmd := exec.Command("bash", "-c", cleanCommand)
-						err = shell.RunCmdLive(cmd)
-						if err != nil {
-							fmt.Println("Error cleaning up temp assets")
-							os.Exit(1)
-						}
-					}()
+					if clientToken == nil {
+						fmt.Println("Failed to create a client token")
+						os.Exit(1)
+					}
 
 					// run makefile
 					makeCommand := "CAKEWORK_APP_NAME=" + appName + " CAKEWORK_CLIENT_TOKEN=" + clientToken.Token + " make new"
@@ -570,10 +575,10 @@ func main() {
 							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
 							taskLogs, err := frontendClient.GetTaskLogs(userId, appName, taskName, statusFilter)
 							if err != nil {
-								return fmt.Errorf("Could not get task logs: %w", err)
+								return fmt.Errorf("Could not get run logs: %w", err)
 							}
 
-							if len(taskLogs.Requests) == 0 {
+							if len(taskLogs.Runs) == 0 {
 								fmt.Println("No requests found. Check your Project name and Task name!")
 								return nil
 							}
@@ -581,9 +586,9 @@ func main() {
 							t := table.NewWriter()
 							t.SetOutputMirror(os.Stdout)
 							t.AppendHeader(table.Row{"Request Id", "Status", "Started", "Updated", "Parameters", "Result"})
-							for _, request := range taskLogs.Requests {
+							for _, request := range taskLogs.Runs {
 								t.AppendRow([]interface{}{
-									request.RequestId,
+									request.RunId,
 									request.Status,
 									time.Unix(request.CreatedAt, 0).Format("02 Jan 06 15:04 MST"),
 									time.Unix(request.UpdatedAt, 0).Format("02 Jan 06 15:04 MST"),
@@ -615,7 +620,7 @@ func main() {
 							if cCtx.NArg() != 1 {
 								return errors.New("Please include one parameter, the Request ID")
 							}
-							requestId := cCtx.Args().Get(0)
+							runId := cCtx.Args().Get(0)
 
 							userId, err := getUserId(configFile)
 							if err != nil {
@@ -623,7 +628,7 @@ func main() {
 							}
 
 							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
-							requestStatus, err := frontendClient.GetRequestStatus(userId, requestId)
+							requestStatus, err := frontendClient.GetRunRequestStatus(userId, runId)
 							if err != nil {
 								return fmt.Errorf("Error getting request status from server. %w", err)
 							}
@@ -650,7 +655,7 @@ func main() {
 							if cCtx.NArg() != 1 {
 								return errors.New("Please include one parameter, the Request ID")
 							}
-							requestId := cCtx.Args().Get(0)
+							runId := cCtx.Args().Get(0)
 
 							userId, err := getUserId(configFile)
 							if err != nil {
@@ -661,7 +666,7 @@ func main() {
 							s.Start()
 
 							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
-							requestLogs, err := frontendClient.GetRequestLogs(userId, requestId)
+							requestLogs, err := frontendClient.GetRunLogs(userId, runId)
 							s.Stop()
 							if err != nil {
 								return fmt.Errorf("Error getting request logs %w", err)

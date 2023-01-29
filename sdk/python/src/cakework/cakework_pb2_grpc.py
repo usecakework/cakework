@@ -2,8 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import cakework_pb2 as cakework__pb2
-
+# import cakework_pb2 as cakework__pb2
+# TODO programatically fix this
+from cakework import cakework_pb2 as cakework__pb2
 
 class CakeworkStub(object):
     """Missing associated documentation comment in .proto file."""
