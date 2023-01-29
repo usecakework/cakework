@@ -1,5 +1,5 @@
 {
-    "name": "@cakework/client",
+    "name": "@cakework/fern_client",
     "version": "0.0.17",
     "files": [
         "dist",
