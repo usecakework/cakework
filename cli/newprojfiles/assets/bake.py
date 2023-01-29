@@ -9,18 +9,18 @@ if __name__ == "__main__":
 
         client = Client("proj", CAKEWORK_CLIENT_TOKEN, local=False)
 
-        request_id = client.run("say-hello", {"name":"from Cakework"}, compute={})
-        print("Your request id is " + request_id)
+        run_id = client.run("say-hello", {"name":"from Cakework"}, compute={})
+        print("Your run id is " + run_id)
         
-        status = client.get_run_status(request_id)
+        status = client.get_run_status(run_id)
 
         while status == "PENDING" or status == "IN_PROGRESS":
             print("Still baking...!")
             time.sleep(1)
-            status = client.get_run_status(request_id)
+            status = client.get_run_status(run_id)
         
         if status == "SUCCEEDED":
-            result = client.get_run_result(request_id)
+            result = client.get_run_result(run_id)
             print(result)
         else:
             print("Task stopped  with status: " + status)
