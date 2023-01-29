@@ -19,6 +19,7 @@ import (
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -59,6 +60,7 @@ var customClaims = func() validator.CustomClaims {
 var stage string
 
 // this isn't really needed, but vscode auto removes the import for embed if it's not referenced
+//
 //go:embed fly.toml
 var flyConfig embed.FS
 
@@ -137,6 +139,7 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(ginBodyLogMiddleware)
 	router.Use(guidMiddleware())
+	router.Use(cors.Default())
 
 	// The issuer of our token.
 	AUTH0_URL := viper.GetString("AUTH0_URL")
@@ -162,22 +165,22 @@ func main() {
 		// user-initiated
 		// TODO cache the token to user mappings
 		jwtProtectedGroup.POST("/projects/:project/tasks/:task/runs", handleRun, jwtTokenMiddleware("external")) // header: bearer token. TODO: get userId from bearer token
-		jwtProtectedGroup.GET("/runs/:runId/status", handleGetRunStatus, jwtTokenMiddleware("external")) // header: bearer token
-		jwtProtectedGroup.GET("/runs/:runId/result", handleGetRunResult, jwtTokenMiddleware("external")) // header: bearer token
-		jwtProtectedGroup.POST("/client-tokens", handleCreateClientToken, jwtTokenMiddleware("external")) // header: bearer token
+		jwtProtectedGroup.GET("/runs/:runId/status", handleGetRunStatus, jwtTokenMiddleware("external"))         // header: bearer token
+		jwtProtectedGroup.GET("/runs/:runId/result", handleGetRunResult, jwtTokenMiddleware("external"))         // header: bearer token
+		jwtProtectedGroup.POST("/client-tokens", handleCreateClientToken, jwtTokenMiddleware("external"))        // header: bearer token
 
 		// uses user creds to call, but initiated on behalf of the user by the CLI
 		jwtProtectedGroup.POST("/users", handleCreateUser, jwtTokenMiddleware("external")) // only called by internal. TODO refactor so that we don't trigger this from the cli using the user's creds
 		jwtProtectedGroup.GET("/user-from-client-token", handleGetUserFromClientToken, jwtTokenMiddleware("external"))
-		jwtProtectedGroup.GET("/users/:userId", handleGetUser, jwtTokenMiddleware("external"))    
+		jwtProtectedGroup.GET("/users/:userId", handleGetUser, jwtTokenMiddleware("external"))
 		jwtProtectedGroup.GET("/cli-secrets", handleGetCLISecrets, jwtTokenMiddleware("external")) // TODO remove this in the future once we have our own build server
-		jwtProtectedGroup.GET("/projects/:project/tasks/:task/logs", handleGetTaskLogs, jwtTokenMiddleware("external"))                              
+		jwtProtectedGroup.GET("/projects/:project/tasks/:task/logs", handleGetTaskLogs, jwtTokenMiddleware("external"))
 		jwtProtectedGroup.GET("/runs/:runId/logs", handleGetRunLogs, jwtTokenMiddleware("external"))
 		jwtProtectedGroup.POST("/projects/:project/tasks/:task/machines", handleCreateMachine, jwtTokenMiddleware("external"))
 
 		// only internal services can call
-		jwtProtectedGroup.POST("/runs/:runId/status", handleUpdateRunStatus, jwtTokenMiddleware("internal"))                             
-		jwtProtectedGroup.POST("/runs/:runId/result", handleUpdateRunResult, jwtTokenMiddleware("internal"))                            
+		jwtProtectedGroup.POST("/runs/:runId/status", handleUpdateRunStatus, jwtTokenMiddleware("internal"))
+		jwtProtectedGroup.POST("/runs/:runId/result", handleUpdateRunResult, jwtTokenMiddleware("internal"))
 		jwtProtectedGroup.POST("/runs/:runId/machineId", handleUpdateMachineId, jwtTokenMiddleware("internal"))
 	}
 
@@ -193,25 +196,25 @@ func main() {
 }
 
 type bodyLogWriter struct {
-    gin.ResponseWriter
-    body *bytes.Buffer
+	gin.ResponseWriter
+	body *bytes.Buffer
 }
 
 func (w bodyLogWriter) Write(b []byte) (int, error) {
-    w.body.Write(b)
-    return w.ResponseWriter.Write(b)
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
 }
 
 func ginBodyLogMiddleware(c *gin.Context) {
-    blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
-    c.Writer = blw
-    c.Next()
-    statusCode := c.Writer.Status()
-    if statusCode >= 400 {
-        //ok this is an request with error, let's make a record for it
-        // now print body (or log in your preferred way)
-        log.Error("Response body: " + blw.body.String())
-    }
+	blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+	c.Writer = blw
+	c.Next()
+	statusCode := c.Writer.Status()
+	if statusCode >= 400 {
+		//ok this is an request with error, let's make a record for it
+		// now print body (or log in your preferred way)
+		log.Error("Response body: " + blw.body.String())
+	}
 }
 
 func guidMiddleware() gin.HandlerFunc {
@@ -245,7 +248,7 @@ func handleGetRunLogs(c *gin.Context) {
 	}
 
 	if runDetails == nil {
-		c.IndentedJSON(http.StatusNotFound, "Run " + newGetRunLogsRequest.RunId + " does not exist.")
+		c.IndentedJSON(http.StatusNotFound, "Run "+newGetRunLogsRequest.RunId+" does not exist.")
 		return
 	}
 
@@ -327,7 +330,7 @@ func handleGetCLISecrets(c *gin.Context) {
 		return
 	}
 
-	secrets := types.CLISecrets {
+	secrets := types.CLISecrets{
 		FLY_ACCESS_TOKEN: FLY_ACCESS_TOKEN,
 	}
 
@@ -745,8 +748,8 @@ func handleCreateMachine(c *gin.Context) {
 func handleGetRunStatus(c *gin.Context) {
 	runId := c.Param("runId")
 	// get project and user id from the headers
-	// TODO cache the info about the user id 
-	
+	// TODO cache the info about the user id
+
 	// apiKey := c.Request.Header.Get("X-Api-Key") // TODO refactor to middleware
 	// userId, err := getUserFromAPIKey(apiKey)
 	// if err != nil {
@@ -763,7 +766,7 @@ func handleGetRunStatus(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			log.Info("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + runId + " not found"})
-			return	
+			return
 		} else {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
@@ -786,7 +789,7 @@ func handleGetRunResult(c *gin.Context) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + runId + " not found"})
-			return	
+			return
 		} else {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
@@ -826,11 +829,10 @@ func handleRun(c *gin.Context) {
 	req.Memory = runReq.Memory
 	req.UserId = userId
 	req.Status = "PENDING"
-	
+
 	// serialize to json based on the type
 	byteSlice, _ := json.Marshal(runReq.Parameters)
 	req.Parameters = string(byteSlice)
-
 
 	log.Debugf("Enqueueing request: %+v\n", req)
 	if enqueue(req) != nil { // TODO check whether this is an err; if so, return different status code
