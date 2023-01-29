@@ -357,7 +357,6 @@ func main() {
 						return fmt.Errorf("Error creating a new project: %w", err)
 					}
 
-
 					// s.Stop()
 
 					return nil
@@ -572,7 +571,7 @@ func main() {
 							}
 
 							frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
-							
+
 							taskLogs, err := frontendClient.GetTaskLogs(userId, appName, taskName, statusFilter)
 							if err != nil {
 								return fmt.Errorf("Could not get task logs: %w", err)
@@ -821,9 +820,8 @@ func signUpOrLogin(headless bool) error {
 	} else {
 		err = openBrowser(verificationUrl)
 		if err != nil {
-			fmt.Println("Open the login website in a browser and enter your code:")
-			fmt.Println(verificationUrlNotComplete)
-			return nil
+			fmt.Println("Could not open browser. Run login/signup with --headless")
+			return err
 		}
 	}
 
