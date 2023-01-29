@@ -11,9 +11,5 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-cli
-main
-cakework
-frontend
 .DS_STORE
 .env
