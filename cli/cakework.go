@@ -393,7 +393,7 @@ func main() {
 					}
 
 					// TODO this won't work if they change the folder name
-					srcDir := workingDirectory + "/" + filepath.Base(workingDirectory)
+					srcDir := workingDirectory + "/" + strings.ReplaceAll(strings.ToLower(filepath.Base(workingDirectory)), "-", "_")
 
 					fmt.Println("Deploying Your Project...")
 					readFile, err := os.Open(filepath.Join(srcDir, "main.py"))
