@@ -92,7 +92,7 @@ class Client:
         if response is not None:
             if response.status_code == 200:
                 status = response.text
-                return status
+                return json.loads(status)
             elif response.status_code == 404:
                 return None
             else:
@@ -121,7 +121,7 @@ class Client:
             raise exceptions.CakeworkError("Something unexpected happened")
         if response is not None:
             if response.status_code == 200:
-                result = response.text
+                result = json.loads(response.json())
                 return result
             elif response.status_code == 404:
                 return None
@@ -130,7 +130,7 @@ class Client:
         else:
             raise exceptions.CakeworkError("Internal server exception") 
     
-    def run(self, project, task, params, compute):
+    def run(self, task, params, compute ={"cpu":1, "memory": 256}):
         sanitized_task = task.lower()
         sanitized_task = task.replace('_', '-')
 
@@ -154,40 +154,7 @@ class Client:
     
         # print(request) # TODO delete
 
-        response = requests.post(f"{self.frontend_url}/client/projects/{project}/tasks/{sanitized_task}/runs", json=request, headers=self.headers)
+        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_task}/runs", json=request, headers=self.headers)
         response_json = response.json()
         run_id = response_json["runId"] # this may be null?
         return run_id
-
-    def __getattr__(self, name):
-        def method(*args, compute={}):            
-            sanitized_name = name.lower()
-            sanitized_name = name.replace('_', '-')
-
-            parameters = json.dumps(args)
-            request = {
-                "parameters": parameters
-            }
-
-            cpu = compute.get("cpu")
-            if cpu is not None:
-                if cpu < 1 or cpu > 8:
-                    raise exceptions.CakeworkError("Number of cpus must be between 1 and 8")
-                else:
-                    request["cpu"] = cpu
-                    
-            memory = compute.get("memory")
-            if memory is not None:
-                if memory < 256 or memory > 16384:
-                    raise exceptions.CakeworkError("Amount of memory must be between 256 and 16384 mb")
-                else:
-                    request["memory"] = memory
-        
-            # print(request) # TODO delete
-  
-            response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_name}/runs", json=request, headers=self.headers)
-            response_json = response.json()
-            run_id = response_json["runId"] # this may be null?
-            return run_id
-
-        return method

@@ -239,7 +239,7 @@ func handleGetRunLogs(c *gin.Context) {
 	runDetails, err := getRun(db, newGetRunLogsRequest.RunId)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, "Sorry :( something broke, come talk to us")
 		return
 	}
@@ -257,7 +257,7 @@ func handleGetRunLogs(c *gin.Context) {
 
 	logs, err := getRunLogs(userId, project, taskName, machineId, runId)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, "Sorry :( something broke, come talk to us")
 		return
 	}
@@ -270,8 +270,7 @@ func handleGetTaskLogs(c *gin.Context) {
 	var newGetTaskLogsRequest types.GetTaskLogsRequest
 
 	if err := c.BindJSON(&newGetTaskLogsRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusBadRequest, "Issue with parsing request to json")
 		return
 	}
@@ -285,8 +284,7 @@ func handleGetTaskLogs(c *gin.Context) {
 
 	// return task not found properly
 	if err != nil {
-		fmt.Println("Error when getting task logs")
-		fmt.Println(err)
+		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, "Sorry :( something broke, come talk to us")
 		return
 	}
@@ -298,16 +296,15 @@ func getStatus(c *gin.Context) {
 	var newGetStatusRequest types.GetRunStatusRequest
 
 	if err := c.BindJSON(&newGetStatusRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
 	request, err := getRun(db, newGetStatusRequest.RunId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			fmt.Println("no request with request id found")
-			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetStatusRequest.RunId + " not found"})
+			log.Error("no request with request id found")
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + newGetStatusRequest.RunId + " not found"})
 			return
 		} else {
 			log.Error(err)
@@ -341,16 +338,14 @@ func getResult(c *gin.Context) {
 	var newGetResultRequest types.GetRunResultRequest
 
 	if err := c.BindJSON(&newGetResultRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
 	request, err := getRun(db, newGetResultRequest.RunId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			fmt.Println("no request with request id found")
-			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RunId + " not found"})
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + newGetResultRequest.RunId + " not found"})
 			return
 		} else {
 			log.Error(err)
@@ -369,8 +364,7 @@ func handleUpdateRunStatus(c *gin.Context) {
 	var request types.UpdateRunStatusRequest
 
 	if err := c.BindJSON(&request); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -393,8 +387,9 @@ func handleUpdateRunStatus(c *gin.Context) {
 	fmt.Printf("Updated %d rows", a)
 	if a == 0 {
 		// nothing was updated; row not found most likely (though can be due to some other error)
-		fmt.Println("nothing was updated")
+		log.Error("nothing was updated")
 		c.Status(http.StatusNotFound)
+		return
 	} else {
 		if err != nil {
 			log.Error(err)
@@ -410,8 +405,7 @@ func handleUpdateRunResult(c *gin.Context) {
 	var request types.UpdateRunResultRequest
 
 	if err := c.BindJSON(&request); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -434,12 +428,14 @@ func handleUpdateRunResult(c *gin.Context) {
 	fmt.Printf("Updated %d rows", a)
 	if a == 0 {
 		// nothing was updated; row not found most likely (though can be due to some other error)
-		fmt.Println("nothing was updated")
+		log.Error("nothing was updated")
 		c.Status(http.StatusNotFound)
+		return
 	} else {
 		if err != nil {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
+			return
 		} else {
 			c.Status(http.StatusOK)
 		}
@@ -450,7 +446,6 @@ func handleUpdateMachineId(c *gin.Context) {
 	var request types.UpdateMachineIdRequest
 
 	if err := c.BindJSON(&request); err != nil {
-		fmt.Println("got error reading in request")
 		log.Error(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 		return
@@ -475,12 +470,14 @@ func handleUpdateMachineId(c *gin.Context) {
 	fmt.Printf("Updated %d rows", a)
 	if a == 0 {
 		// nothing was updated; row not found most likely (though can be due to some other error)
-		fmt.Println("nothing was updated")
+		log.Error("nothing was updated")
 		c.Status(http.StatusNotFound)
+		return
 	} else {
 		if err != nil {
 			log.Error(err)
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
+			return
 		} else {
 			c.Status(http.StatusOK)
 		}
@@ -493,8 +490,8 @@ func enqueue(req types.Run) error {
 
 	_, err := js.Publish(subjectName, reqJSON)
 	if err != nil {
-		fmt.Println("error while publishing")
-		fmt.Println(err)
+		log.Error("error while publishing")
+		log.Error(err)
 		return err // TODO return a human readable error
 	} else {
 		log.Printf("Request with RunId:%s has been published\n", req.RunId)
@@ -541,20 +538,17 @@ func checkErr(err error) {
 // TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0?
 // if the frontend api is locked down now, how will the client call the frontend?
 func handleCreateClientToken(c *gin.Context) {
-	fmt.Println("context")
-	fmt.Println(c)
 	var newRequest types.CreateClientTokenRequest
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		fmt.Println("Failed to generate random token")
-		fmt.Println(err) // TODO return a custom http response
+		log.Error("Failed to generate random token")
+		log.Error(err) // TODO return a custom http response
 	}
 
 	token := hex.EncodeToString(b)
 
 	if err := c.BindJSON(&newRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -638,8 +632,7 @@ func handleGetUserFromClientToken(c *gin.Context) {
 	var newRequest types.GetUserByClientTokenRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -666,8 +659,7 @@ func handleGetUser(c *gin.Context) {
 	var newRequest types.GetUserRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -690,8 +682,6 @@ func handleGetUser(c *gin.Context) {
 		}
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
 	} else {
-		fmt.Println("user")
-		fmt.Println(user)
 		c.IndentedJSON(http.StatusOK, user)
 	}
 }
@@ -822,8 +812,7 @@ func handleRun(c *gin.Context) {
 	log.Debug("user id: " + userId)
 
 	if err := c.BindJSON(&runReq); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 

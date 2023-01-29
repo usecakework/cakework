@@ -7,18 +7,20 @@ if __name__ == "__main__":
     with p.open('r') as f:
         CAKEWORK_CLIENT_TOKEN = f.readline().strip('\n')
 
-        client = Client("REPLACE_APPNAME", CAKEWORK_CLIENT_TOKEN)
+        client = Client("proj", CAKEWORK_CLIENT_TOKEN, local=False)
 
-        # You can persist this request ID to get status of the job later
-        request_id = client.say_hello("from Cakework")
+        request_id = client.run("say-hello", {"name":"from Cakework"}, compute={})
         print("Your request id is " + request_id)
+        
+        status = client.get_run_status(request_id)
 
-        status = client.get_status(request_id)
-        while (status == "PENDING" or status == "IN_PROGRESS"):
+        while status == "PENDING" or status == "IN_PROGRESS":
             print("Still baking...!")
-            status = client.get_status(request_id)
             time.sleep(1)
-
-        if (client.get_status(request_id) == "SUCCEEDED"):
-            result = client.get_result(request_id)
+            status = client.get_run_status(request_id)
+        
+        if status == "SUCCEEDED":
+            result = client.get_run_result(request_id)
             print(result)
+        else:
+            print("Task stopped  with status: " + status)

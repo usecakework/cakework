@@ -357,7 +357,6 @@ func main() {
 						return fmt.Errorf("Error creating a new project: %w", err)
 					}
 
-					// 					createExampleClient(appDirectory, appName)
 
 					// s.Stop()
 
@@ -705,73 +704,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func createExampleClient(appDirectory string, appName string) error {
-	userId, err := getUserId(configFile)
-	if err != nil {
-		return fmt.Errorf("Error getting user details to create a client token with: %w", err)
-	}
-	frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
-	clientToken, err := frontendClient.CreateClientToken(userId, appName)
-
-	if err != nil {
-		return fmt.Errorf("Error creating a client token: %w", err)
-	}
-	// create sample client
-	exampleClientDirectory := filepath.Join(appDirectory, "example_client")
-	err = os.Mkdir(exampleClientDirectory, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	exampleClient := `from cakework import Client
-import time
-from dotenv import load_dotenv
-import os
-
-if __name__ == "__main__":
-    load_dotenv()  # take environment variables from .env.
-
-	# Generate your client token with create-client-token my-client-token
-    CAKEWORK_CLIENT_TOKEN = os.environ.get("CAKEWORK_CLIENT_TOKEN")
-	
-    client = Client("` + appName + `", CAKEWORK_CLIENT_TOKEN)
-
-    # You can persist this request ID to get status of the job later
-    request_id = client.say_hello("from Cakework")
-    print("Your request id is " + request_id)
-
-    status = client.get_status(request_id)
-    while (status == "PENDING" or status == "IN_PROGRESS"):
-        print("Still baking...!")
-        status = client.get_status(request_id)
-        time.sleep(1)
-
-    if (client.get_status(request_id) == "SUCCEEDED"):
-        result = client.get_result(request_id)
-        print(result)
-`
-
-	f, err := os.Create(filepath.Join(exampleClientDirectory, "main.py"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	f.WriteString(exampleClient)
-	f.Sync()
-
-	f, err = os.Create(filepath.Join(exampleClientDirectory, ".env"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	dotEnv := `CAKEWORK_CLIENT_TOKEN=` + clientToken.Token
-	f.WriteString(dotEnv)
-	f.Sync()
-
-	return nil
 }
 
 // File copies a single file from src to dst
