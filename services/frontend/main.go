@@ -32,26 +32,10 @@ import (
 )
 
 const (
-	streamName     = "TASKS"
-	streamSubjects = "TASKS.*"
-	subjectName    = "TASKS.created"
+	streamName     = "RUNS"
+	streamSubjects = "RUNS.*"
+	subjectName    = "RUNS.created"
 )
-
-// deprecated?
-type task struct {
-	ID         string `json:"id"`
-	Parameters string `json:"parameters"`
-	Status     string `json:"status"`
-	Result     string `json:"result"`
-}
-
-// deprecated?
-type TaskRequest struct {
-	UserId     string `json:"userId"`
-	App        string `json:"app"`
-	Task       string `json:"task"`
-	Parameters string `json:"parameters"`
-}
 
 var db *sql.DB
 var err error
@@ -64,11 +48,7 @@ type CustomClaimsExample struct {
 	Scope string `json:"scope"`
 }
 
-// Validate errors out if `ShouldReject` is true.
 func (c *CustomClaimsExample) Validate(ctx context.Context) error {
-	// if c.ShouldReject {
-	// 	return errors.New("should reject was set to true")
-	// }
 	return nil
 }
 
@@ -79,24 +59,24 @@ var customClaims = func() validator.CustomClaims {
 var stage string
 
 // this isn't really needed, but vscode auto removes the import for embed if it's not referenced
-//
 //go:embed fly.toml
 var flyConfig embed.FS
 
 func main() {
-	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally") // can pass go run main.go -local
+	verbosePtr := flag.Bool("verbose", false, "boolean which if true runs the poller locally")
 
 	flag.Parse()
 
 	verbose := *verbosePtr
 
 	if verbose {
-		log.Info("Verbose=true")
+		log.Info("verbose=true")
 		log.SetLevel(log.DebugLevel)
 	} else {
-		log.Info("Verbose=false")
+		log.Info("verbose=false")
 		log.SetLevel(log.InfoLevel)
 	}
+
 	stage := os.Getenv("STAGE")
 	if stage == "" {
 		log.Fatal("Failed to get stage from environment variable")
@@ -142,7 +122,7 @@ func main() {
 	// Open the connection
 	db, err = sql.Open("mysql", DB_CONN_STRING)
 	if err != nil {
-		log.Fatalf("impossible to create the connection: %s", err)
+		log.Fatalf("Could not connect to database: %s", err)
 	}
 	defer db.Close()
 	db.SetConnMaxLifetime(time.Minute * 3)
@@ -178,35 +158,36 @@ func main() {
 
 	jwtProtectedGroup := router.Group("", adapter.Wrap(jwtMiddleware.CheckJWT))
 	{
-		jwtProtectedGroup.POST("/submit-task", submitTask, jwtTokenMiddleware("submit:task")) // the scope middleware needs to run before the jwtTokenMiddleware handler
-		jwtProtectedGroup.GET("/get-status", getStatus, jwtTokenMiddleware("get:status"))
-		jwtProtectedGroup.GET("/get-result", getResult, jwtTokenMiddleware("get:result"))                                              // TODO change to GET /request/result/requestId
-		jwtProtectedGroup.PATCH("/update-status", updateStatus, jwtTokenMiddleware("update:status"))                                   // TODO change to POST /request/status/requestId
-		jwtProtectedGroup.PATCH("/update-result", updateResult, jwtTokenMiddleware("update:result"))                                   // TODO change to POST /request/result/requestId
-		jwtProtectedGroup.POST("/create-client-token", createClientToken, jwtTokenMiddleware("create:client_token"))                   // TODO change to POST /client-token // TODO protect this using auth0
-		jwtProtectedGroup.POST("/create-user", createUser, jwtTokenMiddleware("create:user"))                                          // TODO change to POST /user
-		jwtProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken, jwtTokenMiddleware("get:user_from_client_token")) // TODO change to GET /user with parameters/query string
-		jwtProtectedGroup.GET("/get-user", getUser, jwtTokenMiddleware("get:user"))                                                    // TODO change to GET /user
-		jwtProtectedGroup.GET("/task/logs", handleGetTaskLogs, jwtTokenMiddleware("get:task_status"))                                  // the scope is incorrectly named. TODO fix
-		jwtProtectedGroup.GET("/request/logs", handleGetRequestLogs)
-		jwtProtectedGroup.POST("/create-machine", createMachine, jwtTokenMiddleware("create:machine"))
-		jwtProtectedGroup.PATCH("/update-machine-id", updateMachineId, jwtTokenMiddleware("update:machine_id")) // TODO change to POST /request/status/requestId
-		jwtProtectedGroup.GET("/get-cli-secrets", getCLISecrets, jwtTokenMiddleware("create:user")) // wrong scope
-		// TODO have an add-task
+		// external scope means the CLI, task sdk and client sdk can call
+		// user-initiated
+		// TODO cache the token to user mappings
+		jwtProtectedGroup.POST("/projects/:project/tasks/:task/runs", handleRun, jwtTokenMiddleware("external")) // header: bearer token. TODO: get userId from bearer token
+		jwtProtectedGroup.GET("/runs/:runId/status", handleGetRunStatus, jwtTokenMiddleware("external")) // header: bearer token
+		jwtProtectedGroup.GET("/runs/:runId/result", handleGetRunResult, jwtTokenMiddleware("external")) // header: bearer token
+		jwtProtectedGroup.POST("/client-tokens", handleCreateClientToken, jwtTokenMiddleware("external")) // header: bearer token
+
+		// uses user creds to call, but initiated on behalf of the user by the CLI
+		jwtProtectedGroup.POST("/users", handleCreateUser, jwtTokenMiddleware("external")) // only called by internal. TODO refactor so that we don't trigger this from the cli using the user's creds
+		jwtProtectedGroup.GET("/user-from-client-token", handleGetUserFromClientToken, jwtTokenMiddleware("external"))
+		jwtProtectedGroup.GET("/users/:userId", handleGetUser, jwtTokenMiddleware("external"))    
+		jwtProtectedGroup.GET("/cli-secrets", handleGetCLISecrets, jwtTokenMiddleware("external")) // TODO remove this in the future once we have our own build server
+		jwtProtectedGroup.GET("/projects/:project/tasks/:task/logs", handleGetTaskLogs, jwtTokenMiddleware("external"))                              
+		jwtProtectedGroup.GET("/runs/:runId/logs", handleGetRunLogs, jwtTokenMiddleware("external"))
+
+		// only internal services can call
+		jwtProtectedGroup.POST("/runs/:runId/status", handleUpdateRunStatus, jwtTokenMiddleware("internal"))                             
+		jwtProtectedGroup.POST("/runs/:runId/result", handleUpdateRunResult, jwtTokenMiddleware("internal"))                            
+		jwtProtectedGroup.POST("/runs/:runId/machineId", handleUpdateMachineId, jwtTokenMiddleware("internal"))
+
+		jwtProtectedGroup.POST("/projects/:project/tasks/:task/machines", handleCreateMachine, jwtTokenMiddleware("internal"))
 	}
 
 	apiKeyProtectedGroup := router.Group("/client", apiKeyMiddleware())
 	{
-		apiKeyProtectedGroup.GET("/get-status", getStatus)
-		apiKeyProtectedGroup.GET("/get-result", getResult) // TODO change to GET /request/result/requestId
-		apiKeyProtectedGroup.POST("/submit-task", submitTask)
-		apiKeyProtectedGroup.GET("/get-user-from-client-token", getUserFromClientToken) // user never actually invokes this, but our client library needs to
-		apiKeyProtectedGroup.PATCH("/update-status", updateStatus)                                   // TODO change to POST /request/status/requestId
-		apiKeyProtectedGroup.PATCH("/update-result", updateResult)                                   // TODO change to POST /request/result/requestId
-	
-		apiKeyProtectedGroup.GET("/runs/:runId/status", getRunStatus) // TODO migrate to getStatus
-		apiKeyProtectedGroup.GET("/runs/:runId/result", getRunResult)
-		apiKeyProtectedGroup.POST("/runs/", run)
+		apiKeyProtectedGroup.GET("/user-from-client-token", handleGetUserFromClientToken) // user never actually invokes this, but client needs to
+		apiKeyProtectedGroup.GET("/runs/:runId/status", handleGetRunStatus)
+		apiKeyProtectedGroup.GET("/runs/:runId/result", handleGetRunResult)
+		apiKeyProtectedGroup.POST("/projects/:project/tasks/:task/runs/", handleRun)
 	}
 
 	router.Run()
@@ -247,74 +228,38 @@ func guidMiddleware() gin.HandlerFunc {
 	}
 }
 
-// TODO have this throw error?
-func submitTask(c *gin.Context) {
-	// TODO check if app exists; if not, throw an error
-	var req types.Request
+func handleGetRunLogs(c *gin.Context) {
+	var newGetRunLogsRequest types.GetRunLogsRequest
 
-	if err := c.BindJSON(&req); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
-		return
-	}
-
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	userId := strings.Replace(strings.ToLower(req.UserId), "_", "-", -1)
-	app := strings.Replace(strings.ToLower(req.App), "_", "-", -1)
-	task := strings.Replace(strings.ToLower(req.Task), "_", "-", -1)
-
-	req.UserId = userId
-	req.App = app
-	req.Task = task
-	req.RequestId = (uuid.New()).String()
-	req.Status = "PENDING"
-
-	// enqueue this message
-	if enqueue(req) != nil { // TODO check whether this is an err; if so, return different status code
+	if err := c.BindJSON(&newGetRunLogsRequest); err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "Internal server error"}) // TODO expose better errors
-	} else {
-		c.IndentedJSON(http.StatusCreated, req)
-	}
-}
-
-func handleGetRequestLogs(c *gin.Context) {
-
-	// get app name and task name from the request id
-	var newGetRequestLogsRequest types.GetRequestLogsRequest
-
-	if err := c.BindJSON(&newGetRequestLogsRequest); err != nil {
-		fmt.Println("got error reading in request")
-		fmt.Println(err)
 		c.IndentedJSON(http.StatusBadRequest, "Issue with parsing request to json")
 		return
 	}
 
-	requestDetails, err := getRun(db, newGetRequestLogsRequest.RequestId)
+	runDetails, err := getRun(db, newGetRunLogsRequest.RunId)
 
 	if err != nil {
 		fmt.Println(err)
-		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+		c.IndentedJSON(http.StatusInternalServerError, "Sorry :( something broke, come talk to us")
 		return
 	}
 
-	if requestDetails == nil {
-		c.IndentedJSON(http.StatusNotFound, "Request "+newGetRequestLogsRequest.RequestId+" does not exist.")
+	if runDetails == nil {
+		c.IndentedJSON(http.StatusNotFound, "Run " + newGetRunLogsRequest.RunId + " does not exist.")
 		return
 	}
 
-	requestId := requestDetails.RequestId
-	userId := requestDetails.UserId
-	appName := requestDetails.App
-	taskName := requestDetails.Task
-	machineId := requestDetails.MachineId
+	runId := runDetails.RunId
+	userId := runDetails.UserId
+	project := runDetails.Project
+	taskName := runDetails.Task
+	machineId := runDetails.MachineId
 
-	logs, err := getRequestLogs(userId, appName, taskName, machineId, requestId)
+	logs, err := getRunLogs(userId, project, taskName, machineId, runId)
 	if err != nil {
 		fmt.Println(err)
-		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+		c.IndentedJSON(http.StatusInternalServerError, "Sorry :( something broke, come talk to us")
 		return
 	}
 
@@ -333,7 +278,7 @@ func handleGetTaskLogs(c *gin.Context) {
 	}
 
 	userId := util.SanitizeUserId(newGetTaskLogsRequest.UserId)
-	app := util.SanitizeAppName(newGetTaskLogsRequest.App)
+	app := util.SanitizeAppName(newGetTaskLogsRequest.Project)
 	task := util.SanitizeTaskName(newGetTaskLogsRequest.Task)
 	statusFilter := newGetTaskLogsRequest.StatusFilter
 
@@ -343,7 +288,7 @@ func handleGetTaskLogs(c *gin.Context) {
 	if err != nil {
 		fmt.Println("Error when getting task logs")
 		fmt.Println(err)
-		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
+		c.IndentedJSON(http.StatusInternalServerError, "Sorry :( something broke, come talk to us")
 		return
 	}
 
@@ -351,7 +296,7 @@ func handleGetTaskLogs(c *gin.Context) {
 }
 
 func getStatus(c *gin.Context) {
-	var newGetStatusRequest types.GetStatusRequest
+	var newGetStatusRequest types.GetRunStatusRequest
 
 	if err := c.BindJSON(&newGetStatusRequest); err != nil {
 		fmt.Println("got error reading in request")
@@ -359,26 +304,26 @@ func getStatus(c *gin.Context) {
 		return
 	}
 
-	request, err := getRun(db, newGetStatusRequest.RequestId)
+	request, err := getRun(db, newGetStatusRequest.RunId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
-			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetStatusRequest.RequestId + " not found"})
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetStatusRequest.RunId + " not found"})
 			return
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "sorry :( something broke, come talk to us"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 			return
 		}
 	} else {
-		response := types.GetStatusResponse{
+		response := types.GetRunStatusResponse{
 			Status: request.Status,
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}
 }
 
-func getCLISecrets(c *gin.Context) {
+func handleGetCLISecrets(c *gin.Context) {
 	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
 	if FLY_ACCESS_TOKEN == "" {
 		log.Info("FLY_ACCESS_TOKEN shouldn't be null")
@@ -394,7 +339,7 @@ func getCLISecrets(c *gin.Context) {
 }
 
 func getResult(c *gin.Context) {
-	var newGetResultRequest types.GetResultRequest
+	var newGetResultRequest types.GetRunResultRequest
 
 	if err := c.BindJSON(&newGetResultRequest); err != nil {
 		fmt.Println("got error reading in request")
@@ -402,25 +347,25 @@ func getResult(c *gin.Context) {
 		return
 	}
 
-	request, err := getRun(db, newGetResultRequest.RequestId)
+	request, err := getRun(db, newGetResultRequest.RunId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("no request with request id found")
-			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RequestId + " not found"})
+			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "request with request id " + newGetResultRequest.RunId + " not found"})
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "sorry :( something broke, come talk to us"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 		}
 	} else {
-		response := types.GetResultResponse{
+		response := types.GetRunResultResponse{
 			Result: request.Result,
 		}
 		c.IndentedJSON(http.StatusOK, response)
 	}
 }
 
-func updateStatus(c *gin.Context) {
-	var request types.UpdateStatusRequest
+func handleUpdateRunStatus(c *gin.Context) {
+	var request types.UpdateRunStatusRequest
 
 	if err := c.BindJSON(&request); err != nil {
 		fmt.Println("got error reading in request")
@@ -436,10 +381,10 @@ func updateStatus(c *gin.Context) {
 	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
 
 	// TODO use the userId and app
-	stmt, err := db.Prepare("UPDATE TaskRun SET status = ? WHERE requestId = ?")
+	stmt, err := db.Prepare("UPDATE Run SET status = ? WHERE RunId = ?")
 	checkErr(err)
 
-	res, e := stmt.Exec(request.Status, request.RequestId)
+	res, e := stmt.Exec(request.Status, request.RunId)
 	checkErr(e)
 
 	a, e := res.RowsAffected()
@@ -452,15 +397,15 @@ func updateStatus(c *gin.Context) {
 	} else {
 		if err != nil {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
 		}
 	}
 }
 
-func updateResult(c *gin.Context) {
-	var request types.UpdateResultRequest
+func handleUpdateRunResult(c *gin.Context) {
+	var request types.UpdateRunResultRequest
 
 	if err := c.BindJSON(&request); err != nil {
 		fmt.Println("got error reading in request")
@@ -476,10 +421,10 @@ func updateResult(c *gin.Context) {
 	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
 
 	// TODO use the userId and app
-	stmt, err := db.Prepare("UPDATE TaskRun SET result = ? WHERE requestId = ?")
+	stmt, err := db.Prepare("UPDATE Run SET result = ? WHERE RunId = ?")
 	checkErr(err)
 
-	res, e := stmt.Exec(request.Result, request.RequestId)
+	res, e := stmt.Exec(request.Result, request.RunId)
 	checkErr(e)
 
 	a, e := res.RowsAffected()
@@ -492,21 +437,20 @@ func updateResult(c *gin.Context) {
 	} else {
 		if err != nil {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
 		}
 	}
 }
 
-// right now just updating the TaskRun table; eventually migrate to Request table
-func updateMachineId(c *gin.Context) {
-	var request types.UpdateMachineId
+func handleUpdateMachineId(c *gin.Context) {
+	var request types.UpdateMachineIdRequest
 
 	if err := c.BindJSON(&request); err != nil {
 		fmt.Println("got error reading in request")
 		log.Error(err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"}) // TODO expose better errors
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 	}
 
 	// TODO verify that we aren't overwriting anything
@@ -517,10 +461,10 @@ func updateMachineId(c *gin.Context) {
 	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
 
 	// TODO use the userId and app
-	stmt, err := db.Prepare("UPDATE TaskRun SET machineId = ? WHERE requestId = ?")
+	stmt, err := db.Prepare("UPDATE Run SET machineId = ? WHERE RunId = ?")
 	checkErr(err)
 
-	res, e := stmt.Exec(request.MachineId, request.RequestId)
+	res, e := stmt.Exec(request.MachineId, request.RunId)
 	checkErr(e)
 
 	a, e := res.RowsAffected()
@@ -533,7 +477,7 @@ func updateMachineId(c *gin.Context) {
 	} else {
 		if err != nil {
 			log.Error(err)
-			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 		} else {
 			c.Status(http.StatusOK)
 		}
@@ -541,7 +485,7 @@ func updateMachineId(c *gin.Context) {
 }
 
 // no need to add scope checking here, as this is not directly invoked by a route
-func enqueue(req types.Request) error {
+func enqueue(req types.Run) error {
 	reqJSON, _ := json.Marshal(req)
 
 	_, err := js.Publish(subjectName, reqJSON)
@@ -550,19 +494,16 @@ func enqueue(req types.Request) error {
 		fmt.Println(err)
 		return err // TODO return a human readable error
 	} else {
-		log.Printf("Request with RequestId:%s has been published\n", req.RequestId)
-		// update the database
-		log.Printf("Inserting into db now")
-		query := "INSERT INTO `TaskRun` (`requestId`, `userId`, `app`, `task`, `parameters`, `status`, `cpu`, `memoryMB`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-		insertResult, err := db.ExecContext(context.Background(), query, req.RequestId, req.UserId, req.App, req.Task, req.Parameters, req.Status, req.CPU, req.MemoryMB)
+		log.Printf("Request with RunId:%s has been published\n", req.RunId)
+		query := "INSERT INTO `Run` (`RunId`, `userId`, `project`, `task`, `parameters`, `status`, `cpu`, `memory`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+		insertResult, err := db.ExecContext(context.Background(), query, req.RunId, req.UserId, req.Project, req.Task, req.Parameters, req.Status, req.CPU, req.Memory)
 		if err != nil {
-			fmt.Printf("impossible to insert : %s", err)
+			log.Error("Failed to insert : %s", err)
 			return err
 		}
 		_, err = insertResult.LastInsertId()
 		if err != nil {
 			return err
-			// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 		}
 	}
 	return nil
@@ -596,7 +537,7 @@ func checkErr(err error) {
 
 // TODO: for the client token, add the scopes for submitting a new task, getting status, getting result if we move this to auth0?
 // if the frontend api is locked down now, how will the client call the frontend?
-func createClientToken(c *gin.Context) {
+func handleCreateClientToken(c *gin.Context) {
 	fmt.Println("context")
 	fmt.Println(c)
 	var newRequest types.CreateClientTokenRequest
@@ -625,12 +566,12 @@ func createClientToken(c *gin.Context) {
 	insertResult, err := db.ExecContext(context.Background(), query, tokenId, newRequest.Name, token, newRequest.UserId, updatedAt)
 	if err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
 		c.IndentedJSON(http.StatusCreated, clientToken)
@@ -648,12 +589,12 @@ func createClientToken(c *gin.Context) {
 
 }
 
-func createUser(c *gin.Context) {
+func handleCreateUser(c *gin.Context) {
 	var newRequest types.CreateUserRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
@@ -669,11 +610,11 @@ func createUser(c *gin.Context) {
 	insertResult, err := db.ExecContext(context.Background(), query, newUser.Id)
 	if err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 		// log.Fatalf("impossible to retrieve last inserted id: %s", err) // will this cause an error exit?
 	} else {
 		// log.Printf("inserted id: %d", id) // TODO this is not working as expected? or should this always return 0? should we turn on auto-increment?
@@ -682,7 +623,7 @@ func createUser(c *gin.Context) {
 	}
 }
 
-func getUserFromClientToken(c *gin.Context) {
+func handleGetUserFromClientToken(c *gin.Context) {
 
 	// fetch the client token by the token value
 	// return the user
@@ -711,7 +652,7 @@ func getUserFromClientToken(c *gin.Context) {
 	}
 }
 
-func getUser(c *gin.Context) {
+func handleGetUser(c *gin.Context) {
 	var newRequest types.GetUserRequest
 
 	if err := c.BindJSON(&newRequest); err != nil {
@@ -733,7 +674,7 @@ func getUser(c *gin.Context) {
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user with id not found"})
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 		}
 		// log.Fatalf("impossible to fetch : %s", err) // we shouldn't exit??? or will this only kill the current thing? TODO test this behavior
 	} else {
@@ -761,12 +702,12 @@ func getUserFromAPIKey(apiKey string) (*types.User, error) {
 	}
 }
 
-func createMachine(c *gin.Context) {
+func handleCreateMachine(c *gin.Context) {
 	var req types.CreateMachineRequest
 
 	if err := c.BindJSON(&req); err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	}
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
@@ -782,12 +723,12 @@ func createMachine(c *gin.Context) {
 	insertResult, err := db.ExecContext(context.Background(), query, userId, project, task, flyApp, req.Name, req.MachineId, req.State, req.Image, req.Source)
 	if err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	}
 	_, err = insertResult.LastInsertId()
 	if err != nil {
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	} else {
 		log.Info("Successfully inserted")
 		c.IndentedJSON(http.StatusCreated, req)
@@ -796,15 +737,15 @@ func createMachine(c *gin.Context) {
 
 // new refactor using REST API patterns
 // TODO take i the project id
-func getRunStatus(c *gin.Context) {
-	runId := c.Param("runId") 
+func handleGetRunStatus(c *gin.Context) {
+	runId := c.Param("runId")
 	// get project and user id from the headers
 	// TODO cache the info about the user id 
 	
 	// apiKey := c.Request.Header.Get("X-Api-Key") // TODO refactor to middleware
 	// userId, err := getUserFromAPIKey(apiKey)
 	// if err != nil {
-	// 	c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+	// 	c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"})
 	// 	return
 	// }
 
@@ -815,12 +756,12 @@ func getRunStatus(c *gin.Context) {
 	request, err := getRun(db, runId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			fmt.Println("no request with request id found")
+			log.Info("no request with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + runId + " not found"})
 			return	
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 			return
 		}
 	} else {
@@ -833,7 +774,7 @@ func getRunStatus(c *gin.Context) {
 
 // new refactor using REST API patterns
 // TODO take i the project id
-func getRunResult(c *gin.Context) {
+func handleGetRunResult(c *gin.Context) {
 	runId := c.Param("runId")
 
 	request, err := getRun(db, runId)
@@ -843,7 +784,7 @@ func getRunResult(c *gin.Context) {
 			return	
 		} else {
 			log.Error(err)
-			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Internal server error"}) // TODO expose better errors
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 			return
 		}
 	} else {
@@ -855,19 +796,15 @@ func getRunResult(c *gin.Context) {
 }
 
 // TODO have this throw error?
-func run(c *gin.Context) {
+func handleRun(c *gin.Context) {
+	project := c.Param("project")
+	project = util.SanitizeProjectName(project)
+	task := c.Param("task")
 	// TODO check if app exists; if not, throw an error
 	var runReq types.RunRequest
 	// get user id and project from the headers
-	clientToken := c.Request.Header.Get("X-Api-Key")
-	userId, err := getUserFromAPIKey(clientToken)
-	if err != nil {
-		log.Error("Error getting user id from client token")
-		log.Error(err)
-		c.IndentedJSON(http.StatusInternalServerError, "sorry :( something broke, come talk to us")
-	}
-
-	log.Debug("user id: " + userId.Id)
+	userId := c.Request.Header.Get("userId")
+	log.Debug("user id: " + userId)
 
 	if err := c.BindJSON(&runReq); err != nil {
 		fmt.Println("got error reading in request")
@@ -875,32 +812,15 @@ func run(c *gin.Context) {
 		return
 	}
 
-	project := util.SanitizeAppName(c.Request.Header.Get("name"))
-	// userId := "dummy"
-	// app := "myapp"
-	task := util.SanitizeTaskName(runReq.Task)
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-	// TODO hardcode stuff for now!! 
-	// sanitize; convert app and task name to lower case, only hyphens
-	// userId := strings.Replace(strings.ToLower(req.UserId), "_", "-", -1)
-	// app := strings.Replace(strings.ToLower(req.App), "_", "-", -1)
-	// task := strings.Replace(strings.ToLower(req.Task), "_", "-", -1)
+	task = util.SanitizeTaskName(task)
 
-	// req.UserId = userId
-	// req.App = app
-	// log.Debug(runReq.Parameters)
-	// for _, value := range runReq.Parameters {
-	// 	log.Debug(value)
-	// 	fmt.Printf("t1: %T\n", value	)
-	//   }
-
-	var req types.Request
+	var req types.Run
 	req.Task = task
-	req.RequestId = (uuid.New()).String()
-	req.App = project
+	req.RunId = (uuid.New()).String()
+	req.Project = project
 	req.CPU = runReq.CPU
-	req.MemoryMB = runReq.Memory
-	req.UserId = userId.Id
+	req.Memory = runReq.Memory
+	req.UserId = userId
 	req.Status = "PENDING"
 	
 	// serialize to json based on the type
@@ -908,13 +828,22 @@ func run(c *gin.Context) {
 	req.Parameters = string(byteSlice)
 
 
-	log.Debugf("%+v\n", req)
+	log.Debugf("Enqueueing request: %+v\n", req)
 	if enqueue(req) != nil { // TODO check whether this is an err; if so, return different status code
 		log.Error(err)
-		c.IndentedJSON(http.StatusFailedDependency, gin.H{"message": "internal server error"}) // TODO expose better errors
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Sorry :( something broke, come talk to us"}) // TODO expose better errors
 		return
 	} else {
 		c.IndentedJSON(http.StatusCreated, req)
 		return
 	}
+}
+
+func getUserFromHeader(c *gin.Context) (string, error) {
+	clientToken := c.Request.Header.Get("X-Api-Key")
+	userId, err := getUserFromAPIKey(clientToken)
+	if err != nil {
+		return "", err
+	}
+	return userId.Id, nil
 }

@@ -8,7 +8,7 @@ import json
 from concurrent import futures
 from cakework import cakework_pb2
 from cakework import cakework_pb2_grpc
-from .activity_server import ActivityServer
+from .task_server import TaskServer
 import importlib
 import logging
 
@@ -21,8 +21,7 @@ class Cakework:
 		logging.info("Created project with name: " + self.name)
 
 	def add_task(self, task):
-		logging.info("Adding task")
-		activity_server = ActivityServer(task, self.local)
+		activity_server = TaskServer(task, self.local)
 		activity_server.start()
 
 def serve():

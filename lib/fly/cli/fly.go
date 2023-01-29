@@ -56,7 +56,7 @@ func (fly *Fly) NewMachine(appName string, directory string) (string, error) {
 			Guest: flyTypes.Guest{
 				CPUKind:  "shared",
 				CPUs:     1,
-				MemoryMB: 256,
+				Memory: 256,
 			},
 			Restart : flyTypes.Restart {
 				Policy: "no",

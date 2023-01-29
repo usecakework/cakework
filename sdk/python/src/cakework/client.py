@@ -34,8 +34,8 @@ class Client:
 
             # based on the particular user id, how do we fetch user credentials and get a token on behalf of the user?
             # need SOME sort of token first
-            self.headers = {'content-type': 'application/json', 'X-Api-Key': client_token}
-            response = requests.get(f"{self.frontend_url}/client/get-user-from-client-token", json={"token": client_token}, headers=self.headers)      # Q: should this take app?        
+            self.headers = {'content-type': 'application/json', 'X-Api-Key': client_token, 'project': project}
+            response = requests.get(f"{self.frontend_url}/client/user-from-client-token", json={"token": client_token}, headers=self.headers)      # Q: should this take app?        
                
             # if dont' get a a valid user
             # TODO raise exception
@@ -70,12 +70,12 @@ class Client:
 
         self.local = local
         
-    def get_status(self, request_id):
+    def get_run_status(self, run_id):
         response = None
         try:
             # Q: status 200 vs 201??? what's the diff?
             # TODO strip app from everywhere
-            response = requests.get(f"{self.frontend_url}/client/get-status", json={"userId": self.user_id, "app": self.project, "requestId": request_id}, headers=self.headers)                
+            response = requests.get(f"{self.frontend_url}/client/runs/{run_id}/status", json={"userId": self.user_id, "project": self.project, "runId": run_id}, headers=self.headers)                
             response.raise_for_status()
             # TODO: handle http error, or request id not found error
         except requests.exceptions.HTTPError as err:
@@ -91,8 +91,7 @@ class Client:
             raise exceptions.CakeworkError("Error happened while getting status") from err
         if response is not None:
             if response.status_code == 200:
-                response_json = response.json()
-                status = response_json["status"] # this may be null?
+                status = response.text
                 return status
             elif response.status_code == 404:
                 return None
@@ -102,11 +101,11 @@ class Client:
             raise exceptions.CakeworkError("Internal server exception") 
 
     # TODO figure out how to refactor get_result and get_status  
-    def get_result(self, request_id):
+    def get_run_result(self, run_id):
         response = None
         try:
             # Q: status 200 vs 201??? what's the diff?
-            response = requests.get(f"{self.frontend_url}/client/get-result", json={"userId": self.user_id, "app": self.project, "requestId": request_id}, headers=self.headers)                
+            response = requests.get(f"{self.frontend_url}/client/runs/{run_id}/result", json={"userId": self.user_id, "project": self.project, "runId": run_id}, headers=self.headers)                
             response.raise_for_status() # TODO delete this?
             # TODO: handle http error, or request id not found error
         except requests.exceptions.HTTPError as errh:
@@ -122,8 +121,7 @@ class Client:
             raise exceptions.CakeworkError("Something unexpected happened")
         if response is not None:
             if response.status_code == 200:
-                response_json = response.json()
-                result = response_json["result"] # Q: how to return None if process is still executing? instead of empty string
+                result = response.text
                 return result
             elif response.status_code == 404:
                 return None
@@ -131,7 +129,36 @@ class Client:
                 raise exceptions.CakeworkError("Internal server exception")
         else:
             raise exceptions.CakeworkError("Internal server exception") 
-       
+    
+    def run(self, project, task, params, compute):
+        sanitized_task = task.lower()
+        sanitized_task = task.replace('_', '-')
+
+        request = {
+            "parameters": params
+        }
+
+        cpu = compute.get("cpu")
+        if cpu is not None:
+            if cpu < 1 or cpu > 8:
+                raise exceptions.CakeworkError("Number of cpus must be between 1 and 8")
+            else:
+                request["cpu"] = cpu
+                
+        memory = compute.get("memory")
+        if memory is not None:
+            if memory < 256 or memory > 16384:
+                raise exceptions.CakeworkError("Amount of memory must be between 256 and 16384 mb")
+            else:
+                request["memory"] = memory
+    
+        # print(request) # TODO delete
+
+        response = requests.post(f"{self.frontend_url}/client/projects/{project}/tasks/{sanitized_task}/runs", json=request, headers=self.headers)
+        response_json = response.json()
+        run_id = response_json["runId"] # this may be null?
+        return run_id
+
     def __getattr__(self, name):
         def method(*args, compute={}):            
             sanitized_name = name.lower()
@@ -139,9 +166,6 @@ class Client:
 
             parameters = json.dumps(args)
             request = {
-                "userId": self.user_id,
-                "app": self.project,
-                "task": sanitized_name,
                 "parameters": parameters
             }
 
@@ -161,9 +185,9 @@ class Client:
         
             # print(request) # TODO delete
   
-            response = requests.post(f"{self.frontend_url}/client/submit-task", json=request, headers=self.headers)
+            response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_name}/runs", json=request, headers=self.headers)
             response_json = response.json()
-            request_id = response_json["requestId"] # this may be null?
-            return request_id
+            run_id = response_json["runId"] # this may be null?
+            return run_id
 
         return method

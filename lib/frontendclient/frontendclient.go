@@ -32,7 +32,7 @@ func New(url string, credentialsProvider auth.CredentialsProvider) *Client {
 func (client *Client) CreateMachine(userId string, project string, task string, name string, machineId string, state string, image string, source string) error {
 	flyApp := fly.GetFlyAppName(userId, project, task)
 
-	url := client.Url + "/create-machine"
+	url := client.Url + "/projects/" + project + "/tasks" + task + "/machines"
 	req := types.CreateMachineRequest{
 		UserId:    userId,
 		Project:   project,
@@ -59,7 +59,7 @@ func (client *Client) CreateMachine(userId string, project string, task string, 
 }
 
 func (client *Client) GetUser(userId string) (*types.User, error) {
-	url := client.Url + "/get-user"
+	url := client.Url + "/users/" + userId
 	getUserRequest := types.GetUserRequest{
 		UserId: userId,
 	}
@@ -88,7 +88,7 @@ func (client *Client) GetUser(userId string) (*types.User, error) {
 }
 
 func (client *Client) CreateUser(userId string) (*types.User, error) { // TODO change return type
-	url := client.Url + "/create-user"
+	url := client.Url + "/users"
 	createUserRequest := types.CreateUserRequest{
 		UserId: userId,
 	}
@@ -115,7 +115,7 @@ func (client *Client) CreateUser(userId string) (*types.User, error) { // TODO c
 }
 
 func (client *Client) CreateClientToken(userId string, name string) (*types.ClientToken, error) { // TODO change return type
-	url := client.Url + "/create-client-token"
+	url := client.Url + "/client-tokens"
 	createTokenReq := types.CreateTokenRequest{
 		UserId: userId,
 		Name:   name,
@@ -142,11 +142,11 @@ func (client *Client) CreateClientToken(userId string, name string) (*types.Clie
 	}
 }
 
-func (client *Client) GetRequestStatus(userId string, requestId string) (string, error) {
-	url := client.Url + "/get-status"
-	getStatusRequest := types.GetStatusRequest{
+func (client *Client) GetRunRequestStatus(userId string, runId string) (string, error) {
+	url := client.Url + "/runs/" + runId + "/status"
+	getStatusRequest := types.GetRunStatusRequest{
 		UserId:    userId,
-		RequestId: requestId,
+		RunId: runId,
 	}
 
 	res, err := http.CallV2(url, "GET", getStatusRequest, client.CredentialsProvider)
@@ -160,7 +160,7 @@ func (client *Client) GetRequestStatus(userId string, requestId string) (string,
 	}
 
 	if res.StatusCode == 200 {
-		var status types.GetStatusResponse
+		var status types.GetRunStatusResponse
 		if err := json.Unmarshal(body, &status); err != nil {
 			return "", err
 		}
@@ -172,21 +172,21 @@ func (client *Client) GetRequestStatus(userId string, requestId string) (string,
 	}
 }
 
-func (client *Client) GetRequestLogs(userId string, requestId string) (*types.RequestLogs, error) {
-	url := client.Url + "/request/logs"
-	getRequestLogsRequest := types.GetRequestLogsRequest{
+func (client *Client) GetRunLogs(userId string, runId string) (*types.RunLogs, error) {
+	url := client.Url + "/runs/" + runId + "/logs"
+	getRunLogsRequest := types.GetRunLogsRequest{
 		UserId:    userId,
-		RequestId: requestId,
+		RunId: runId,
 	}
 
-	res, err := http.CallV2(url, "GET", getRequestLogsRequest, client.CredentialsProvider)
+	res, err := http.CallV2(url, "GET", getRunLogsRequest, client.CredentialsProvider)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == 200 {
-		var requestLogs types.RequestLogs
+		var requestLogs types.RunLogs
 
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -205,11 +205,11 @@ func (client *Client) GetRequestLogs(userId string, requestId string) (*types.Re
 	}
 }
 
-func (client *Client) GetTaskLogs(userId string, appName string, taskName string, statusFilter string) (types.TaskLogs, error) {
+func (client *Client) GetTaskLogs(userId string, projectName string, taskName string, statusFilter string) (types.TaskLogs, error) {
 	url := client.Url + "/task/logs"
 	getTaskLogsRequest := types.GetTaskLogsRequest{
 		UserId:       userId,
-		App:          appName,
+		Project:      projectName,
 		Task:         taskName,
 		StatusFilter: statusFilter,
 	}
@@ -217,7 +217,7 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 	res, err := http.CallV2(url, "GET", getTaskLogsRequest, client.CredentialsProvider)
 	if err != nil {
 		return types.TaskLogs{
-			Requests: []types.Request{},
+			Runs: []types.Run{},
 		}, err
 	}
 	defer res.Body.Close()
@@ -227,7 +227,7 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return types.TaskLogs{
-				Requests: []types.Request{},
+				Runs: []types.Run{},
 			}, err
 		}
 
@@ -238,21 +238,19 @@ func (client *Client) GetTaskLogs(userId string, appName string, taskName string
 		fmt.Println(res)
 		err = errors.New("Server Error " + res.Status)
 		return types.TaskLogs{
-			Requests: []types.Request{},
+			Runs: []types.Run{},
 		}, err
 	}
 }
 
-func (client *Client) UpdateStatus(userId string, app string, requestId string, status string) error {
-	url := client.Url + "/update-status"
-	req := types.UpdateStatusRequest{
-		UserId:    userId,
-		App:       app,
-		RequestId: requestId,
+func (client *Client) UpdateRunStatus(userId string, project string, runId string, status string) error {
+	url := client.Url + "/runs/" + runId + "/status"
+	req := types.UpdateRunStatusRequest{
+		RunId: runId,
 		Status:    status,
 	}
 
-	res, err := http.CallV2(url, "PATCH", req, client.CredentialsProvider)
+	res, err := http.CallV2(url, "POST", req, client.CredentialsProvider)
 	if err != nil {
 		fmt.Println(res) // TODO should be logging instead
 		return err
@@ -270,16 +268,16 @@ func (client *Client) UpdateStatus(userId string, app string, requestId string, 
 	}
 }
 
-func (client *Client) UpdateMachineId(userId string, app string, requestId string, machineId string) error {
-	url := client.Url + "/update-machine-id"
-	req := types.UpdateMachineId{
+func (client *Client) UpdateMachineId(userId string, project string, runId string, machineId string) error {
+	url := client.Url + "/runs/" + runId + "/machineId"
+	req := types.UpdateMachineIdRequest{
 		UserId:    userId,
-		App:       app,
-		RequestId: requestId,
+		Project:   project,
+		RunId:     runId,
 		MachineId: machineId,
 	}
 
-	res, err := http.CallV2(url, "PATCH", req, client.CredentialsProvider)
+	res, err := http.CallV2(url, "POST", req, client.CredentialsProvider)
 	if err != nil {
 		fmt.Println("Got error calling frontend to update machine id")
 		fmt.Println(res) // TODO should be logging instead. most likely this is nil
@@ -295,7 +293,7 @@ func (client *Client) UpdateMachineId(userId string, app string, requestId strin
 }
 
 func (client *Client) GetCLISecrets() (*types.CLISecrets, error) {
-	url := client.Url + "/get-cli-secrets"
+	url := client.Url + "/cli-secrets"
 	var secrets types.CLISecrets
 
 	res, err := http.CallV2(url, "GET", nil, client.CredentialsProvider)

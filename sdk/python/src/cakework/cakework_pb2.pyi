@@ -11,13 +11,13 @@ class Reply(_message.Message):
     def __init__(self, result: _Optional[str] = ...) -> None: ...
 
 class Request(_message.Message):
-    __slots__ = ["app", "parameters", "requestId", "userId"]
-    APP_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ["parameters", "project", "runId", "userId"]
     PARAMETERS_FIELD_NUMBER: _ClassVar[int]
-    REQUESTID_FIELD_NUMBER: _ClassVar[int]
+    PROJECT_FIELD_NUMBER: _ClassVar[int]
+    RUNID_FIELD_NUMBER: _ClassVar[int]
     USERID_FIELD_NUMBER: _ClassVar[int]
-    app: str
     parameters: str
-    requestId: str
+    project: str
+    runId: str
     userId: str
-    def __init__(self, parameters: _Optional[str] = ..., userId: _Optional[str] = ..., app: _Optional[str] = ..., requestId: _Optional[str] = ...) -> None: ...
+    def __init__(self, parameters: _Optional[str] = ..., userId: _Optional[str] = ..., project: _Optional[str] = ..., runId: _Optional[str] = ...) -> None: ...

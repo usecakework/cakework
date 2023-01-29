@@ -19,5 +19,5 @@ type Config struct {
 type Guest struct {
 	CPUKind  string `json:"cpu_kind,omitempty"`
 	CPUs     int    `json:"cpus,omitempty"`
-	MemoryMB int    `json:"memory_mb,omitempty"`
+	Memory int    `json:"memory_mb,omitempty"`
 }

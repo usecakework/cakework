@@ -2,12 +2,11 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-# import cakework_pb2 as cakework__pb2
-from cakework import cakework_pb2 as cakework__pb2
+import cakework_pb2 as cakework__pb2
+
 
 class CakeworkStub(object):
-    """The greeting service definition.
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
         """Constructor.
@@ -15,18 +14,17 @@ class CakeworkStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.RunActivity = channel.unary_unary(
-                '/cakework.Cakework/RunActivity',
+        self.Run = channel.unary_unary(
+                '/cakework.Cakework/Run',
                 request_serializer=cakework__pb2.Request.SerializeToString,
                 response_deserializer=cakework__pb2.Reply.FromString,
                 )
 
 
 class CakeworkServicer(object):
-    """The greeting service definition.
-    """
+    """Missing associated documentation comment in .proto file."""
 
-    def RunActivity(self, request, context):
+    def Run(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -35,8 +33,8 @@ class CakeworkServicer(object):
 
 def add_CakeworkServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'RunActivity': grpc.unary_unary_rpc_method_handler(
-                    servicer.RunActivity,
+            'Run': grpc.unary_unary_rpc_method_handler(
+                    servicer.Run,
                     request_deserializer=cakework__pb2.Request.FromString,
                     response_serializer=cakework__pb2.Reply.SerializeToString,
             ),
@@ -48,11 +46,10 @@ def add_CakeworkServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class Cakework(object):
-    """The greeting service definition.
-    """
+    """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def RunActivity(request,
+    def Run(request,
             target,
             options=(),
             channel_credentials=None,
@@ -62,7 +59,7 @@ class Cakework(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cakework.Cakework/RunActivity',
+        return grpc.experimental.unary_unary(request, target, '/cakework.Cakework/Run',
             cakework__pb2.Request.SerializeToString,
             cakework__pb2.Reply.FromString,
             options, channel_credentials,

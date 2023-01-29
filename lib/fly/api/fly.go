@@ -53,7 +53,7 @@ type Config struct {
 type Guest struct {
 	CPUKind  string `json:"cpu_kind,omitempty"`
 	CPUs     int    `json:"cpus,omitempty"`
-	MemoryMB int    `json:"memory_mb,omitempty"`
+	Memory int    `json:"memory_mb,omitempty"`
 }
 
 func New(org string, endpoint string, credentialsProvider auth.BearerStringCredentialsProvider) *Fly {
@@ -67,7 +67,7 @@ func New(org string, endpoint string, credentialsProvider auth.BearerStringCrede
 }
 
 // Q: should this return machine info?
-func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, memoryMB int) (MachineConfig, error) {
+func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, memory int) (MachineConfig, error) {
 	var config MachineConfig
 	// make a post request to the internal fly api endpoint
 	url, _ := fly.AppUrl(flyApp)
@@ -81,7 +81,7 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 			Guest: Guest{
 				CPUKind:  "shared", // Q: support dedicated?
 				CPUs:     cpus,
-				MemoryMB: memoryMB,
+				Memory: memory,
 			},
 			Restart : Restart {
 				Policy: "no",

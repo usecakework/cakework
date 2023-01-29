@@ -857,7 +857,7 @@ func signUpOrLogin(headless bool) error {
 	AUTH0_CLIENT_ID := viper.GetString("AUTH0_CLIENT_ID")
 	FRONTEND_URL_AUTH0 := "https%3A%2F%2Fcakework-frontend.fly.dev" // viper.GetString("FRONTEND_URL_AUTH0")
 
-	payload := strings.NewReader("client_id=" + AUTH0_CLIENT_ID + "&scope=openid offline_access add:task get:user create:user create:client_token get:status get:task_status create:machine get:cli_secrets %7D&audience=" + FRONTEND_URL_AUTH0)
+	payload := strings.NewReader("client_id=" + AUTH0_CLIENT_ID + "&scope=openid offline_access external %7D&audience=" + FRONTEND_URL_AUTH0)
 	req, _ := http.NewRequest("POST", AUTH0_DEVICE_CODE_URL, payload)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 

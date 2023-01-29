@@ -11,8 +11,8 @@ types:
       - IN_PROGRESS
       - SUCCEEDED
       - FAILED
-  Parameters: list<unknown>
-  RunResult: unknown    
+  Parameters: map<unknown, unknown>
+  RunResult: unknown
   RunRequest:
     properties:
       parameters: optional<Parameters>

@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CakeworkClient interface {
-	RunActivity(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
+	Run(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
 }
 
 type cakeworkClient struct {
@@ -29,9 +29,9 @@ func NewCakeworkClient(cc grpc.ClientConnInterface) CakeworkClient {
 	return &cakeworkClient{cc}
 }
 
-func (c *cakeworkClient) RunActivity(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
+func (c *cakeworkClient) Run(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
 	out := new(Reply)
-	err := c.cc.Invoke(ctx, "/cakework.Cakework/RunActivity", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/cakework.Cakework/Run", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (c *cakeworkClient) RunActivity(ctx context.Context, in *Request, opts ...g
 // All implementations must embed UnimplementedCakeworkServer
 // for forward compatibility
 type CakeworkServer interface {
-	RunActivity(context.Context, *Request) (*Reply, error)
+	Run(context.Context, *Request) (*Reply, error)
 	mustEmbedUnimplementedCakeworkServer()
 }
 
@@ -50,8 +50,8 @@ type CakeworkServer interface {
 type UnimplementedCakeworkServer struct {
 }
 
-func (UnimplementedCakeworkServer) RunActivity(context.Context, *Request) (*Reply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RunActivity not implemented")
+func (UnimplementedCakeworkServer) Run(context.Context, *Request) (*Reply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Run not implemented")
 }
 func (UnimplementedCakeworkServer) mustEmbedUnimplementedCakeworkServer() {}
 
@@ -66,20 +66,20 @@ func RegisterCakeworkServer(s grpc.ServiceRegistrar, srv CakeworkServer) {
 	s.RegisterService(&Cakework_ServiceDesc, srv)
 }
 
-func _Cakework_RunActivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Cakework_Run_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Request)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CakeworkServer).RunActivity(ctx, in)
+		return srv.(CakeworkServer).Run(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cakework.Cakework/RunActivity",
+		FullMethod: "/cakework.Cakework/Run",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CakeworkServer).RunActivity(ctx, req.(*Request))
+		return srv.(CakeworkServer).Run(ctx, req.(*Request))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -92,8 +92,8 @@ var Cakework_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CakeworkServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "RunActivity",
-			Handler:    _Cakework_RunActivity_Handler,
+			MethodName: "Run",
+			Handler:    _Cakework_Run_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

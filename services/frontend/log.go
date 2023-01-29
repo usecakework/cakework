@@ -17,7 +17,7 @@ const QUERY_QUERY_PARAM = "query"
 // for now, just do a simplequery that gets everything and return the json response as string directly
 // figure out the interface later
 // figure out pagination later
-func getLogs(simpleQuery string) (*types.RequestLogs, error) {
+func getLogs(simpleQuery string) (*types.RunLogs, error) {
 	LOGTAIL_TOKEN := viper.GetString("LOGTAIL_TOKEN")
 	req, err := http.NewRequest("GET", LOGTAIL_QUERY_URL, nil)
 	if err != nil {
@@ -40,7 +40,7 @@ func getLogs(simpleQuery string) (*types.RequestLogs, error) {
 		return nil, err
 	}
 
-	var requestLogs types.RequestLogs
+	var requestLogs types.RunLogs
 	json.Unmarshal(body, &requestLogs)
 
 	// sort everything by timestamp

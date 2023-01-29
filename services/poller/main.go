@@ -28,15 +28,15 @@ import (
 )
 
 const (
-	subSubjectName    = "TASKS.created"
+	subSubjectName    = "RUNS.created"
 	DEFAULT_CPU       = 1
-	DEFAULT_MEMORY_MB = 256
+	DEFAULT_MEMORY    = 256
 )
 
 type UpdateStatusRequest struct {
 	UserId    string `json:"userId"`
 	App       string `json:"app"`
-	RequestId string `json:"requestId"`
+	RunId string `json:"runId"`
 	Status    string `json:"status"`
 	MachineId string `json:"machineId"`
 }
@@ -156,16 +156,16 @@ func poll(js nats.JetStreamContext) {
 		msgs, _ := sub.Fetch(10, nats.Context(ctx))
 		for _, msg := range msgs {
 			msg.Ack()
-			var req types.Request
+			var req types.Run
 			err := json.Unmarshal(msg.Data, &req)
 
-			log.Infof("Got request: " + req.UserId + ", " + req.App + ", " + req.Task + ", " + req.RequestId)
+			log.Infof("Got request: " + req.UserId + ", " + req.Project + ", " + req.Task + ", " + req.RunId)
 
 			if err != nil {
 				fmt.Println(err)
 			}
 			if err := runTask(js, req); err != nil { // TODO: handle error if RunTask throws an error
-				log.Error("Error while processing task for " + req.UserId + ", " + req.App + ", " + req.Task + ", " + req.RequestId)
+				log.Debugf("Error while processing run: %+v\n", req)
 				log.Error(err)
 			}
 		}
@@ -179,8 +179,8 @@ func checkErr(err error) {
 }
 
 // reviewOrder reviews the order and publishes ORDERS.approved event
-func runTask(js nats.JetStreamContext, req types.Request) error {
-	flyApp := flyUtil.GetFlyAppName(req.UserId, req.App, req.Task)
+func runTask(js nats.JetStreamContext, req types.Run) error {
+	flyApp := flyUtil.GetFlyAppName(req.UserId, req.Project, req.Task)
 
 	image, err := GetLatestImage(flyApp, db)
 	if err != nil {
@@ -203,20 +203,20 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 
 	// TODO remove hardcoding
 	var cpu int
-	var memoryMB int
+	var memory int
 	if req.CPU == 0 {
 		cpu = DEFAULT_CPU
 	} else {
 		cpu = req.CPU
 	}
-	if req.MemoryMB == 0 {
-		memoryMB = DEFAULT_MEMORY_MB
+	if req.Memory == 0 {
+		memory = DEFAULT_MEMORY
 	} else {
-		memoryMB = req.MemoryMB
+		memory = req.Memory
 	}
 
-	log.Infof("Spinning up a machine with parameters: %s, %s, %s, %d, %d", flyApp, req.RequestId, image, cpu, memoryMB)
-	machineConfig, err := fly.NewMachine(flyApp, req.RequestId, image, cpu, memoryMB)
+	log.Infof("Spinning up a machine with parameters: %s, %s, %s, %d, %d", flyApp, req.RunId, image, cpu, memory)
+	machineConfig, err := fly.NewMachine(flyApp, req.RunId, image, cpu, memory)
 	if err != nil {
 		log.Error("Failed to spin up new Fly machine")
 		return err
@@ -226,10 +226,10 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 		return errors.New("Machine id of spun up machine is null; error occurred somewhere")
 	}
 
-	stmt, err := db.Prepare("UPDATE TaskRun SET machineId = ? WHERE requestId = ?")
+	stmt, err := db.Prepare("UPDATE Run SET machineId = ? WHERE runId = ?")
 	checkErr(err)
 
-	res, e := stmt.Exec(machineConfig.MachineId, req.RequestId)
+	res, e := stmt.Exec(machineConfig.MachineId, req.RunId)
 	checkErr(e)
 
 	a, e := res.RowsAffected()
@@ -288,14 +288,14 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 	defer conn.Close()
 
 	c := pb.NewCakeworkClient(conn)
-	createReq := pb.Request{Parameters: req.Parameters, UserId: req.UserId, App: req.App, RequestId: req.RequestId}
+	createReq := pb.Request{Parameters: req.Parameters, UserId: req.UserId, Project: req.Project, RunId: req.RunId}
 
 	retryCount := 0
 
 	for {
-		_, err := c.RunActivity(ctx, &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
+		_, err := c.Run(ctx, &createReq) // TODO: need to figure out how to expose the error that is thrown here (by the python code) to the users!!!
 		if err != nil {
-			log.Error("Error Cakework RunActivity")
+			log.Error("Error Cakework Run")
 			log.Error(err)
 			log.Error("retry number: ")
 			log.Error(retryCount)
@@ -306,7 +306,7 @@ func runTask(js nats.JetStreamContext, req types.Request) error {
 				log.Info("Retrying")
 			} else {
 				log.Error("Exhausted all retries")
-				frontendClient.UpdateStatus(req.UserId, req.App, req.RequestId, "FAILED")
+				frontendClient.UpdateRunStatus(req.UserId, req.Project, req.RunId, "FAILED")
 				return err
 			}
 		} else {

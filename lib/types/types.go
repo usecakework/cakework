@@ -1,94 +1,78 @@
 package types
 
-// TODO: organize so that we put structs in their relevant files
-
-type Request struct {
-	RequestId  string `json:"requestId"`
+type Run struct {
+	RunId      string `json:"runId"`
 	UserId     string `json:"userId"`
-	App        string `json:"app"`
+    Project    string `json:"project"`
 	Task       string `json:"task"`
 	Status     string `json:"status"`
 	Parameters string `json:"parameters"`
 	Result     string `json:"result"`
 	CPU        int    `json:"cpu"`
-	MemoryMB   int    `json:"memory"`
+	Memory     int    `json:"memory"`
 	MachineId  string `json:"machineId"`
 	CreatedAt  int64  `json:"created_at"`
 	UpdatedAt  int64  `json:"updated_at"`
 }
 
 type RunRequest struct {
-	Task       string `json:"task"`
-	Parameters []interface{} `json:"parameters"`
-	CPU        int    `json:"cpu"`
-	Memory   int    `json:"memory"`
-}
-
-type Task struct {
-	RequestId  string `json:"requestId"`
-	UserId     string `json:"userId"`
-	App        string `json:"app"`
-	Task       string `json:"task"`
-	Status     string `json:"status"`
-	Parameters string `json:"parameters"`
-	Result     string `json:"result"`
-	CPU        int    `json:"cpu"`
-	MemoryMB   int    `json:"memory"`
-	MachineId  string `json:"machineId"`
-	CreatedAt  int64  `json:"created_at"`
-	UpdatedAt  int64  `json:"updated_at"`
+	Project    string                 `json:"project"`
+	Task       string                 `json:"task"`
+	Parameters map[string]interface{} `json:"parameters"`
+	CPU        int                    `json:"cpu"`
+	Memory     int                    `json:"memory"`
 }
 
 type Compute struct {
-	CPU      string `json:"cpu"`
-	MemoryMB string `json:"memoryMB"`
+	CPU        string `json:"cpu"`
+	Memory     string `json:"memory"`
 }
 
 // TODO Timestamp is a string since that's what logtail gives us. Should force to int64 on the server instead of making clients deal with it.
-type RequestLogLine struct {
-	Timestamp string `json:"_dt"`
-	LogLevel  string `json:"log.level"`
-	Message   string `json:"message"`
+type RunLogLine struct {
+	Timestamp  string `json:"_dt"`
+	LogLevel   string `json:"log.level"`
+	Message    string `json:"message"`
 }
 
-type RequestLogs struct {
-	LogLines []RequestLogLine `json:"data"`
+type RunLogs struct {
+	LogLines []RunLogLine `json:"data"`
 }
 
 type CreateTokenRequest struct {
-	UserId string `json:"userId"`
-	Name   string `json:"name"`
+	UserId     string `json:"userId"`
+	Name       string `json:"name"`
 }
 
 type CreateUserRequest struct {
-	UserId string `json:"userId"`
+	UserId     string `json:"userId"`
 }
 
 type GetUserRequest struct {
-	UserId string `json:"userId"`
+	UserId     string `json:"userId"`
 }
 
 type User struct {
-	Id string `json:"id"`
+	Id         string `json:"id"`
 }
 
 type ClientToken struct {
-	Token string `json:"token"`
+	Token      string `json:"token"`
 }
 
-type GetStatusRequest struct {
-	UserId    string `json:"userId"`
-	App       string `json:"app"`
-	RequestId string `json:"requestId"`
+type GetRunStatusRequest struct {
+	UserId     string `json:"userId"`
+	Project    string `json:"project"`
+	RunId      string `json:"runId"`
 }
 
-type GetStatusResponse struct {
-	Status string `json:"status"`
+type GetRunStatusResponse struct {
+	Status     string `json:"status"`
 }
 
 type GetTaskLogsRequest struct {
 	UserId       string `json:"userId"`
-	App          string `json:"app"`
+	Project      string `json:"project"`
 	Task         string `json:"task"`
 	StatusFilter string `json:"status_filter"`
 }
@@ -120,36 +104,30 @@ type FlyMachine struct {
 	UpdatedAt int64  `json:"updated_at"`
 }
 
-type GetResultRequest struct {
-	UserId    string `json:"userId"`
-	App       string `json:"app"`
-	RequestId string `json:"requestId"`
+type GetRunResultRequest struct {
+	UserId        string `json:"userId"`
+	Project       string `json:"project"`
+	RunId         string `json:"runId"`
 }
 
-// Q: how will errors be handled? TODO need to expose an error field?
-type GetResultResponse struct {
-	Result string `json:"result"`
+type GetRunResultResponse struct {
+	Result        string `json:"result"`
 }
 
-// this currently updates the TaskRun table
-type UpdateMachineId struct {
+type UpdateMachineIdRequest struct {
 	UserId    string `json:"userId"`
-	App       string `json:"app"`
-	RequestId string `json:"requestId"`
+	Project   string `json:"project"`
+	RunId     string `json:"runId"`
 	MachineId string `json:"machineId"`
 }
 
-type UpdateStatusRequest struct {
-	UserId    string `json:"userId"`
-	App       string `json:"app"`
-	RequestId string `json:"requestId"`
+type UpdateRunStatusRequest struct {
+	RunId     string `json:"runId"`
 	Status    string `json:"status"`
 }
 
-type UpdateResultRequest struct {
-	UserId    string `json:"userId"`
-	App       string `json:"app"`
-	RequestId string `json:"requestId"`
+type UpdateRunResultRequest struct {
+	RunId     string `json:"runId"`
 	Result    string `json:"result"`
 }
 
@@ -162,13 +140,13 @@ type GetUserByClientTokenRequest struct {
 	Token string `json:"token"`
 }
 
-type GetRequestLogsRequest struct {
+type GetRunLogsRequest struct {
 	UserId    string `json:"userId"`
-	RequestId string `json:"requestId"`
+	RunId     string `json:"runId"`
 }
 
 type TaskLogs struct {
-	Requests []Request `json:"requests"`
+	Runs []Run `json:"runs"`
 }
 
 type CLISecrets struct {
