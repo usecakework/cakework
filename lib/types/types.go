@@ -16,16 +16,13 @@ type Run struct {
 }
 
 type RunRequest struct {
-	Project    string                 `json:"project"`
-	Task       string                 `json:"task"`
 	Parameters map[string]interface{} `json:"parameters"`
-	CPU        int                    `json:"cpu"`
-	Memory     int                    `json:"memory"`
+	Compute Compute                   `json:"compute"`
 }
 
 type Compute struct {
-	CPU    string `json:"cpu"`
-	Memory string `json:"memory"`
+	CPU    int `json:"cpu"`
+	Memory int `json:"memory"`
 }
 
 // TODO Timestamp is a string since that's what logtail gives us. Should force to int64 on the server instead of making clients deal with it.

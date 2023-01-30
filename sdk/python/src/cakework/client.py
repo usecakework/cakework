@@ -96,7 +96,8 @@ class Client:
         sanitized_task = task.replace('_', '-')
 
         request = {
-            "parameters": params
+            "parameters": params,
+            "compute": {}
         }
 
         cpu = compute.get("cpu")
@@ -104,18 +105,21 @@ class Client:
             if cpu < 1 or cpu > 8:
                 raise exceptions.CakeworkError("Number of cpus must be between 1 and 8")
             else:
-                request["cpu"] = cpu
+                request["compute"]["cpu"] = cpu
+        else:
+            request["compute"]['cpu'] = 1
                 
         memory = compute.get("memory")
         if memory is not None:
             if memory < 256 or memory > 16384:
                 raise exceptions.CakeworkError("Amount of memory must be between 256 and 16384 mb")
             else:
-                request["memory"] = memory
+                request["compute"]["memory"] = memory
+        else:
+            request["compute"]['memory'] = 256
     
-        # print(request) # TODO delete
-
-        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_task}/runs", params={"token": self.client_token})
+        request["token"] = self.client_token
+        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_task}/runs", json=request, params={"token": self.client_token})
         response_json = response.json()
         run_id = response_json["runId"] # this may be null?
         return run_id

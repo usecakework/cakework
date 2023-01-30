@@ -805,29 +805,34 @@ func handleRun(c *gin.Context) {
 
 	// TODO check if app exists; if not, throw an error
 	var runReq types.RunRequest
-	// get user id and project from the headers
-	userId := c.Request.Header.Get("userId")
-
 	if err := c.BindJSON(&runReq); err != nil {
 		log.Error(err)
 		return
 	}
-	task = util.SanitizeTaskName(task)
 
-	var req types.Run
-	req.Task = task
-	req.RunId = (uuid.New()).String()
-	req.Project = project
-	req.CPU = runReq.CPU
-	req.Memory = runReq.Memory
-	req.UserId = userId
-	req.Status = "PENDING"
+	// get user id and project from the headers
+	userId := c.Request.Header.Get("userId")
+
+	task = util.SanitizeTaskName(task)
 
 	// serialize to json based on the type
 	byteSlice, err := json.Marshal(runReq.Parameters)
 	if err != nil {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Could not deserialize request params"})
+		return
 	}
+
+	log.Debugf("Got a RunRequest: %+v\n", runReq)
+
+	var req types.Run
+	req.Task = task
+	req.RunId = (uuid.New()).String()
+	req.Project = project
+	req.CPU = runReq.Compute.CPU
+	req.Memory = runReq.Compute.Memory
+	req.UserId = userId
+	req.Status = "PENDING"
+
 	req.Parameters = string(byteSlice)
 
 	log.Debugf("Enqueueing request: %+v\n", req)
