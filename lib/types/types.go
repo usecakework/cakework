@@ -3,7 +3,7 @@ package types
 type Run struct {
 	RunId      string `json:"runId"`
 	UserId     string `json:"userId"`
-    Project    string `json:"project"`
+	Project    string `json:"project"`
 	Task       string `json:"task"`
 	Status     string `json:"status"`
 	Parameters string `json:"parameters"`
@@ -24,15 +24,15 @@ type RunRequest struct {
 }
 
 type Compute struct {
-	CPU        string `json:"cpu"`
-	Memory     string `json:"memory"`
+	CPU    string `json:"cpu"`
+	Memory string `json:"memory"`
 }
 
 // TODO Timestamp is a string since that's what logtail gives us. Should force to int64 on the server instead of making clients deal with it.
 type RunLogLine struct {
-	Timestamp  string `json:"_dt"`
-	LogLevel   string `json:"log.level"`
-	Message    string `json:"message"`
+	Timestamp string `json:"_dt"`
+	LogLevel  string `json:"log.level"`
+	Message   string `json:"message"`
 }
 
 type RunLogs struct {
@@ -40,34 +40,34 @@ type RunLogs struct {
 }
 
 type CreateTokenRequest struct {
-	UserId     string `json:"userId"`
-	Name       string `json:"name"`
+	UserId string `json:"userId"`
+	Name   string `json:"name"`
 }
 
 type CreateUserRequest struct {
-	UserId     string `json:"userId"`
+	UserId string `json:"userId"`
 }
 
 type GetUserRequest struct {
-	UserId     string `json:"userId"`
+	UserId string `json:"userId"`
 }
 
 type User struct {
-	Id         string `json:"id"`
+	Id string `json:"id"`
 }
 
 type ClientToken struct {
-	Token      string `json:"token"`
+	Token string `json:"token"`
 }
 
 type GetRunStatusRequest struct {
-	UserId     string `json:"userId"`
-	Project    string `json:"project"`
-	RunId      string `json:"runId"`
+	UserId  string `json:"userId"`
+	Project string `json:"project"`
+	RunId   string `json:"runId"`
 }
 
 type GetRunStatusResponse struct {
-	Status     string `json:"status"`
+	Status string `json:"status"`
 }
 
 type GetTaskLogsRequest struct {
@@ -105,13 +105,13 @@ type FlyMachine struct {
 }
 
 type GetRunResultRequest struct {
-	UserId        string `json:"userId"`
-	Project       string `json:"project"`
-	RunId         string `json:"runId"`
+	UserId  string `json:"userId"`
+	Project string `json:"project"`
+	RunId   string `json:"runId"`
 }
 
 type GetRunResultResponse struct {
-	Result        string `json:"result"`
+	Result string `json:"result"`
 }
 
 type UpdateMachineIdRequest struct {
@@ -122,13 +122,13 @@ type UpdateMachineIdRequest struct {
 }
 
 type UpdateRunStatusRequest struct {
-	RunId     string `json:"runId"`
-	Status    string `json:"status"`
+	RunId  string `json:"runId"`
+	Status string `json:"status"`
 }
 
 type UpdateRunResultRequest struct {
-	RunId     string `json:"runId"`
-	Result    string `json:"result"`
+	RunId  string `json:"runId"`
+	Result string `json:"result"`
 }
 
 type CreateClientTokenRequest struct {
@@ -141,8 +141,8 @@ type GetUserByClientTokenRequest struct {
 }
 
 type GetRunLogsRequest struct {
-	UserId    string `json:"userId"`
-	RunId     string `json:"runId"`
+	UserId string `json:"userId"`
+	RunId  string `json:"runId"`
 }
 
 type TaskLogs struct {

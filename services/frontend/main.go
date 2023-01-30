@@ -812,7 +812,6 @@ func handleRun(c *gin.Context) {
 		log.Error(err)
 		return
 	}
-
 	task = util.SanitizeTaskName(task)
 
 	var req types.Run
@@ -825,7 +824,10 @@ func handleRun(c *gin.Context) {
 	req.Status = "PENDING"
 
 	// serialize to json based on the type
-	byteSlice, _ := json.Marshal(runReq.Parameters)
+	byteSlice, err := json.Marshal(runReq.Parameters)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Could not deserialize request params"})
+	}
 	req.Parameters = string(byteSlice)
 
 	log.Debugf("Enqueueing request: %+v\n", req)
