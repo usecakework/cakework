@@ -13,7 +13,7 @@ types:
       - FAILED
   Parameters: map<string, unknown>
   RunResult: unknown
-  RunRequest:
+  RunRequestBody:
     properties:
       parameters: optional<Parameters>
       compute: optional<Compute>
@@ -22,44 +22,55 @@ types:
       cpu: optional<integer>
       memory: optional<integer>
 
-services:
-  http:
-    ClientService:
-      auth: true
-      base-path: /client
-      endpoints:
+service:
+  auth: false
+  base-path: /client
+  endpoints:
 
-        getRunStatus:
-          docs: Get the status of a run
-          method: GET
-          path: /runs/{runId}/status
-          path-parameters:
-            runId: RunId
-          response: Status
-          errors:
-            - RunDoesNotExistError
-        getRunResult:
-          docs: Get the result of a run
-          method: GET
-          path: /runs/{runId}/result
-          path-parameters:
-            runId: RunId
-          response: RunResult
-          errors:
-            - RunDoesNotExistError
-        run:
-          docs: Run a task
-          method: POST
-          path: /projects/{project}/tasks/{task}/runs
-          path-parameters:
-            project: Project
-            task: Task
-          request: RunRequest
-          response: 
-            type: RunId
-            docs: Returns newly created run
-          errors:
-            - RunDoesNotExistError
+    getRunStatus:
+      docs: Get the status of a run
+      method: GET
+      path: /runs/{runId}/status
+      path-parameters:
+        runId: RunId
+      request:
+        name: RunStatusRequest
+        query-parameters:
+          token: string
+      response: Status
+      errors:
+        - RunDoesNotExistError
+    getRunResult:
+      docs: Get the result of a run
+      method: GET
+      path: /runs/{runId}/result
+      path-parameters:
+        runId: RunId
+      request:
+        name: RunResultRequest
+        query-parameters:
+          token: string
+      response: RunResult
+      errors:
+        - RunDoesNotExistError
+    run:
+      docs: Run a task
+      method: POST
+      path: /projects/{project}/tasks/{task}/runs
+      path-parameters:
+        project: Project
+        task: Task
+      request: 
+        name: RunRequest
+        query-parameters:
+          token: string
+        body:
+          RunRequestBody
+      response:
+        type: RunId
+        docs: Returns newly created run
+      errors:
+        - RunDoesNotExistError
 
 errors:
   RunDoesNotExistError:

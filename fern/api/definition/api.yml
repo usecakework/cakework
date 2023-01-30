@@ -1,11 +1,4 @@
 name: api
-headers:
-  project: string
-auth: ApiKey
-auth-schemes:
-  ApiKey:
-    header: X-Api-Key
-    type: string
 environments:
   Production: https://cakework-frontend.fly.dev
   Local: http://localhost:8080

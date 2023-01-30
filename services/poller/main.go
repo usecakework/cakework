@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"embed"
@@ -28,15 +27,15 @@ import (
 )
 
 const (
-	subSubjectName    = "RUNS.created"
-	DEFAULT_CPU       = 1
-	DEFAULT_MEMORY    = 256
+	subSubjectName = "RUNS.created"
+	DEFAULT_CPU    = 1
+	DEFAULT_MEMORY = 256
 )
 
 type UpdateStatusRequest struct {
 	UserId    string `json:"userId"`
 	App       string `json:"app"`
-	RunId string `json:"runId"`
+	RunId     string `json:"runId"`
 	Status    string `json:"status"`
 	MachineId string `json:"machineId"`
 }
@@ -51,9 +50,6 @@ var fly *flyApi.Fly
 var flyCredentialsProvider auth.BearerStringCredentialsProvider
 var frontendCredentialsProvider auth.ClientCredentialsCredentialsProvider
 var db *sql.DB
-
-//go:embed .env
-var envFile []byte
 
 // this isn't really needed, but vscode auto removes the import for embed if it's not referenced
 //
@@ -79,7 +75,7 @@ func main() {
 
 	if stage == "dev" {
 		viper.SetConfigType("dotenv")
-		err := viper.ReadConfig(bytes.NewBuffer(envFile))
+		err := viper.ReadInConfig()
 
 		if err != nil {
 			fmt.Println(fmt.Errorf("%w", err))
@@ -119,7 +115,7 @@ func main() {
 	router := gin.Default()
 
 	FLY_ACCESS_TOKEN := viper.GetString("FLY_ACCESS_TOKEN")
-	flyCredentialsProvider = auth.BearerStringCredentialsProvider{ Token: FLY_ACCESS_TOKEN }
+	flyCredentialsProvider = auth.BearerStringCredentialsProvider{Token: FLY_ACCESS_TOKEN}
 	frontendCredentialsProvider = auth.ClientCredentialsCredentialsProvider{
 		ClientSecret: viper.GetString("AUTH0_CLIENT_SECRET"), // not setting the tokens, so a new set will be fetched
 	}
@@ -275,7 +271,7 @@ func runTask(js nats.JetStreamContext, req types.Run) error {
 		log.Error("Failed to get credentials from frontend creds provider")
 		return err
 	}
-	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer " + creds.AccessToken)
+	ctx = grpcMetadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+creds.AccessToken)
 
 	log.Info("Attempting to send request to machine endpoint: " + workerEndpoint)
 	conn, err = grpc.Dial(workerEndpoint, grpc.WithInsecure()) // TODO: don't create a new connection and client with every request; use a pool?
@@ -299,7 +295,7 @@ func runTask(js nats.JetStreamContext, req types.Run) error {
 			log.Error(err)
 			log.Error("retry number: ")
 			log.Error(retryCount)
-			
+
 			retryCount = retryCount + 1
 			if retryCount < 5 {
 				time.Sleep(1 * time.Second)
@@ -313,7 +309,7 @@ func runTask(js nats.JetStreamContext, req types.Run) error {
 			break
 		}
 	}
-	
+
 	log.Info("Successfully submitted task to worker")
 	return nil
 }

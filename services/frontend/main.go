@@ -189,7 +189,7 @@ func main() {
 		apiKeyProtectedGroup.GET("/user-from-client-token", handleGetUserFromClientToken) // user never actually invokes this, but client needs to
 		apiKeyProtectedGroup.GET("/runs/:runId/status", handleGetRunStatus)
 		apiKeyProtectedGroup.GET("/runs/:runId/result", handleGetRunResult)
-		apiKeyProtectedGroup.POST("/projects/:project/tasks/:task/runs/", handleRun)
+		apiKeyProtectedGroup.POST("/projects/:project/tasks/:task/runs", handleRun)
 	}
 
 	router.Run()

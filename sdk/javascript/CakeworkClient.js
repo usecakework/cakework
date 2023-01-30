@@ -6,26 +6,38 @@ class CakeworkClient {
         this.token = token;
         this.client = new CakeworkApiClient({
             project: project,
-            xApiKey: token
         })
     }
 
-    async run(task, params, compute) {        
+    async run(task, params, compute) {     
         const request = {
-            parameters: params,
-            compute: compute
+            token: this.token,     
+            body: {}
         };
+        if (params != undefined) {
+            request.body["parameters"] = params;
+        }
+        if (compute != undefined) {
+            request.body["compute"] = params;
+        }
+
         const requestId = await this.client.client.run(this.project, task, request);
         return requestId;
     }
 
-    async getRunStatus(runId) {
-        const runStatus = await this.client.client.getRunStatus(runId);
+    async getRunStatus(runId) {        
+        const request = {
+            token: this.token,     
+        };
+        const runStatus = await this.client.client.getRunStatus(runId, request);
         return runStatus;
     }
 
     async getRunResult (runId) {
-        const runResult = await this.client.client.getRunResult(runId);
+        const request = {
+            token: this.token,     
+        };
+        const runResult = await this.client.client.getRunResult(runId, request);
         return runResult;
     }
 }

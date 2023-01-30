@@ -35,8 +35,8 @@ type Fly struct {
 }
 
 type MachineConfig struct {
-	Name   string `json:"name,omitempty"`
-	Config Config `json:"config,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Config    Config `json:"config,omitempty"`
 	MachineId string `json:"id,omitempty"`
 }
 
@@ -45,15 +45,16 @@ type Restart struct {
 }
 
 type Config struct {
-	Image string `json:"image,omitempty"`
-	Guest Guest  `json:"guest,omitempty"`
-	Restart Restart `json:"restart,omitempty"`
+	Image       string  `json:"image,omitempty"`
+	Guest       Guest   `json:"guest,omitempty"`
+	Restart     Restart `json:"restart,omitempty"`
+	AutoDestroy bool    `json:"auto_destroy"`
 }
 
 type Guest struct {
-	CPUKind  string `json:"cpu_kind,omitempty"`
-	CPUs     int    `json:"cpus,omitempty"`
-	Memory int    `json:"memory_mb,omitempty"`
+	CPUKind string `json:"cpu_kind,omitempty"`
+	CPUs    int    `json:"cpus,omitempty"`
+	Memory  int    `json:"memory_mb,omitempty"`
 }
 
 func New(org string, endpoint string, credentialsProvider auth.BearerStringCredentialsProvider) *Fly {
@@ -74,18 +75,19 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 
 	fmt.Println("Calling: " + url + " to deploy new machine")
 
-	req := MachineConfig {
+	req := MachineConfig{
 		Name: name,
 		Config: Config{
 			Image: image,
 			Guest: Guest{
-				CPUKind:  "shared", // Q: support dedicated?
-				CPUs:     cpus,
-				Memory: memory,
+				CPUKind: "shared", // Q: support dedicated?
+				CPUs:    cpus,
+				Memory:  memory,
 			},
-			Restart : Restart {
+			Restart: Restart{
 				Policy: "no",
 			},
+			AutoDestroy: true,
 		},
 	}
 
@@ -119,16 +121,15 @@ func (fly *Fly) Wait(flyApp string, machineId string, state string) error {
 		return err
 	}
 
-	
 	// hardcoded
-	res, err := http.CallV2(url + "?state=started&timeout=60", "GET", nil, fly.CredentialsProvider)
+	res, err := http.CallV2(url+"?state=started&timeout=60", "GET", nil, fly.CredentialsProvider)
 	if err != nil {
 		log.Error("Error while waiting for Fly Machine to reach desired state")
 		return err
 	}
 
 	defer res.Body.Close()
-	
+
 	_, err = ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
@@ -158,4 +159,5 @@ func (fly *Fly) MachineUrl(flyApp string, machineId string) (string, error) {
 		return "", err
 	}
 	u.Path = path.Join(u.Path, "v1/apps", flyApp, "machines", machineId, "wait")
-	return u.String(), nil}
+	return u.String(), nil
+}

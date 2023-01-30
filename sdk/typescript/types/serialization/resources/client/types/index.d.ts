@@ -5,5 +5,5 @@ export * from "./RunId";
 export * from "./Status";
 export * from "./Parameters";
 export * from "./RunResult";
-export * from "./RunRequest";
+export * from "./RunRequestBody";
 export * from "./Compute";

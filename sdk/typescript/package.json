@@ -1,6 +1,6 @@
 {
     "name": "@cakework/fern_client",
-    "version": "0.0.17",
+    "version": "0.0.32",
     "files": [
         "dist",
         "types",
