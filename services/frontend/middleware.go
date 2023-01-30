@@ -16,24 +16,23 @@ func abortWithStatusJSON(c *gin.Context, code int, message interface{}) {
 
 func apiKeyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		apiKey := c.Request.Header.Get("X-Api-Key")
-
+		apiKey := c.Query("token")
 		if apiKey == "" {
-			abortWithStatusJSON(c, 401, "API token required")
+			abortWithStatusJSON(c, 401, "Client token required")
 			return
 		} else {
 			// check that api key is valid
 			user, err := getUserFromAPIKey(apiKey)
 			if err != nil {
 				log.Error(err) // Q: how should we expose this error to the user?
-				abortWithStatusJSON(c, 500, "Error while fetching user using API key")
+				abortWithStatusJSON(c, 500, "Error while fetching user using client token")
 				return
 			}
 			if user != nil && user.Id != "" {
 				c.Request.Header.Add("userId", user.Id)
 				c.Next()
 			} else {
-				abortWithStatusJSON(c, 401, "Invalid API token")
+				abortWithStatusJSON(c, 401, "Client Token invalid")
 				return
 			}
 		}
@@ -55,7 +54,7 @@ func jwtTokenMiddleware(scope string) gin.HandlerFunc {
 			}
 			userId := strings.Split(claims.RegisteredClaims.Subject, "|")[1]
 			c.Request.Header.Add("userId", userId)
-		}	
+		}
 
 		if !ok {
 			c.AbortWithStatusJSON(

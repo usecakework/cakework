@@ -691,15 +691,9 @@ func handleGetUser(c *gin.Context) {
 
 // TODO put into a separate package. Can have the main.go invoke this as well
 func getUserFromAPIKey(apiKey string) (*types.User, error) {
-	// fetch the client token by the token value
-	// return the user
-	newRequest := types.GetUserByClientTokenRequest{
-		Token: apiKey,
-	}
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
 	var user types.User
-	err = db.QueryRow("SELECT userId FROM ClientToken where token = ?", newRequest.Token).Scan(&user.Id)
+	err = db.QueryRow("SELECT userId FROM ClientToken where token = ?", apiKey).Scan(&user.Id)
 	if err != nil && user.Id != "" {
 		return nil, err
 	} else {
@@ -808,11 +802,11 @@ func handleRun(c *gin.Context) {
 	project := c.Param("project")
 	project = util.SanitizeProjectName(project)
 	task := c.Param("task")
+
 	// TODO check if app exists; if not, throw an error
 	var runReq types.RunRequest
 	// get user id and project from the headers
 	userId := c.Request.Header.Get("userId")
-	log.Debug("user id: " + userId)
 
 	if err := c.BindJSON(&runReq); err != nil {
 		log.Error(err)
