@@ -1,4 +1,5 @@
 .env
+dist
 .venv
 env/
 venv/

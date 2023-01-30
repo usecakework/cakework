@@ -22,51 +22,12 @@ class Client:
     def __init__(self, project, client_token, local=False): # TODO: infer user id // TODO revert local back to False
         # TODO get rid of "shared"
         self.project = project.lower().replace('_', '-')
-        # make a call to the frontend to get the user_id using the client token
+        self.client_token = client_token
+
         if local:
             self.frontend_url = "http://localhost:8080"
         else:
             self.frontend_url = "https://cakework-frontend.fly.dev"
-
-        response = None
-        self.headers = None
-        try:
-
-            # based on the particular user id, how do we fetch user credentials and get a token on behalf of the user?
-            # need SOME sort of token first
-            self.headers = {'content-type': 'application/json', 'X-Api-Key': client_token, 'project': project}
-            response = requests.get(f"{self.frontend_url}/client/user-from-client-token", json={"token": client_token}, headers=self.headers)      # Q: should this take app?        
-               
-            # if dont' get a a valid user
-            # TODO raise exception
-                       
-            # TODO: handle error for if can't get a user from the client token. technically
-            # we should be getting a JWT token instead first
-            response.raise_for_status()
-            # TODO: handle http error, or request id not found error
-        except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 401:
-                raise exceptions.CakeworkError("Missing client token; please generate and add a client token to your client.") from err
-            else:
-                raise exceptions.CakeworkError("Http error while connecting to Cakework frontend") from err
-        except requests.exceptions.Timeout as err:
-            raise exceptions.CakeworkError("Timed out connecting to Cakework frontend") from err
-        except requests.exceptions.RequestException as err:
-            raise exceptions.CakeworkError("Request exception connecting to Cakework frontend") from err
-        except (ConnectionRefusedError, ConnectionResetError) as err:
-            raise exceptions.CakeworkError("Failed to connect to Cakework frontend service") from err
-        except Exception as err:
-            # TODO catch and raise specific errors? 
-            raise exceptions.CakeworkError("Error happened while initializing Cakework client") from err
-        if response is not None:
-            if response.status_code == 200:
-                response_json = response.json()
-                self.user_id = response_json["id"] # Q: how to return None if process is still executing? instead of empty string
-            else:
-                # TODO add logging to figure out what happened
-                raise exceptions.CakeworkError("Error happened while trying to get the user from the client token")
-        else:
-            raise exceptions.CakeworkError("Error happened while trying to get the user from the client token")
 
         self.local = local
         
@@ -75,7 +36,7 @@ class Client:
         try:
             # Q: status 200 vs 201??? what's the diff?
             # TODO strip app from everywhere
-            response = requests.get(f"{self.frontend_url}/client/runs/{run_id}/status", json={"userId": self.user_id, "project": self.project, "runId": run_id}, headers=self.headers)                
+            response = requests.get(f"{self.frontend_url}/client/runs/{run_id}/status", params={"token": self.client_token})                
             response.raise_for_status()
             # TODO: handle http error, or request id not found error
         except requests.exceptions.HTTPError as err:
@@ -105,7 +66,7 @@ class Client:
         response = None
         try:
             # Q: status 200 vs 201??? what's the diff?
-            response = requests.get(f"{self.frontend_url}/client/runs/{run_id}/result", json={"userId": self.user_id, "project": self.project, "runId": run_id}, headers=self.headers)                
+            response = requests.get(f"{self.frontend_url}/client/runs/{run_id}/result", params={"token": self.client_token})                
             response.raise_for_status() # TODO delete this?
             # TODO: handle http error, or request id not found error
         except requests.exceptions.HTTPError as errh:
@@ -154,7 +115,7 @@ class Client:
     
         # print(request) # TODO delete
 
-        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_task}/runs", json=request, headers=self.headers)
+        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_task}/runs", params={"token": self.client_token})
         response_json = response.json()
         run_id = response_json["runId"] # this may be null?
         return run_id
