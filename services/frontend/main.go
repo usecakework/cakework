@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
@@ -27,9 +26,9 @@ import (
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	fly "github.com/usecakework/cakework/lib/fly"
 	cwHttp "github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/types"
-	"github.com/usecakework/cakework/lib/util"
 )
 
 const (
@@ -278,9 +277,9 @@ func handleGetTaskLogs(c *gin.Context) {
 		return
 	}
 
-	userId := util.SanitizeUserId(newGetTaskLogsRequest.UserId)
-	app := util.SanitizeAppName(newGetTaskLogsRequest.Project)
-	task := util.SanitizeTaskName(newGetTaskLogsRequest.Task)
+	userId := newGetTaskLogsRequest.UserId
+	app := newGetTaskLogsRequest.Project
+	task := newGetTaskLogsRequest.Task
 	statusFilter := newGetTaskLogsRequest.StatusFilter
 
 	taskLogs, err := GetTaskLogs(db, userId, app, task, statusFilter)
@@ -371,14 +370,6 @@ func handleUpdateRunStatus(c *gin.Context) {
 		return
 	}
 
-	// TODO verify that we aren't overwriting anything
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	// userId := strings.Replace(strings.ToLower(request.UserId), "_", "-", -1)
-	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
-
-	// TODO use the userId and app
 	stmt, err := db.Prepare("UPDATE Run SET status = ? WHERE RunId = ?")
 	checkErr(err)
 
@@ -412,14 +403,6 @@ func handleUpdateRunResult(c *gin.Context) {
 		return
 	}
 
-	// TODO verify that we aren't overwriting anything
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	// userId := strings.Replace(strings.ToLower(request.UserId), "_", "-", -1)
-	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
-
-	// TODO use the userId and app
 	stmt, err := db.Prepare("UPDATE Run SET result = ? WHERE RunId = ?")
 	checkErr(err)
 
@@ -457,11 +440,6 @@ func handleUpdateMachineId(c *gin.Context) {
 	// TODO verify that we aren't overwriting anything
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
-	// sanitize; convert app and task name to lower case, only hyphens
-	// userId := strings.Replace(strings.ToLower(request.UserId), "_", "-", -1)
-	// app := strings.Replace(strings.ToLower(request.App), "_", "-", -1)
-
-	// TODO use the userId and app
 	stmt, err := db.Prepare("UPDATE Run SET machineId = ? WHERE RunId = ?")
 	checkErr(err)
 
@@ -578,17 +556,6 @@ func handleCreateClientToken(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusCreated, clientToken)
 	}
-
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	// userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
-
-	// generate 32 character token
-
-	// TODO: insert the token into the database
-	// TODO handle error if can't create token
-
 }
 
 func handleCreateUser(c *gin.Context) {
@@ -600,10 +567,7 @@ func handleCreateUser(c *gin.Context) {
 		return
 	}
 
-	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
-
-	// sanitize; convert app and task name to lower case, only hyphens
-	userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
+	userId := newRequest.UserId
 
 	newUser := types.User{
 		Id: userId,
@@ -668,8 +632,7 @@ func handleGetUser(c *gin.Context) {
 
 	// TODO: before calling the db, we need to generate additional fields like the status and request id. so bind to a new object?
 
-	// sanitize; convert app and task name to lower case, only hyphens
-	userId := strings.Replace(strings.ToLower(newRequest.UserId), "_", "-", -1)
+	userId := newRequest.UserId
 
 	// TODO use the userId and app
 	var user types.User
@@ -714,10 +677,10 @@ func handleCreateMachine(c *gin.Context) {
 
 	// sanitize; convert app and task name to lower case, only hyphens
 	// TODO put this into a middleware
-	userId := util.SanitizeUserId(req.UserId)
-	project := util.SanitizeProjectName(req.Project)
-	task := util.SanitizeTaskName(req.Task)
-	flyApp := userId + "-" + project + "-" + task
+	userId := req.UserId
+	project := req.Project
+	task := req.Task
+	flyApp := fly.GetFlyAppName(userId, project, task)
 
 	query := "INSERT INTO `FlyMachine` (`userId`, `project`, `task`, `flyApp`, `name`, `machineId`, `state`, `image`, `source`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	insertResult, err := db.ExecContext(context.Background(), query, userId, project, task, flyApp, req.Name, req.MachineId, req.State, req.Image, req.Source)
@@ -800,10 +763,11 @@ func handleGetRunResult(c *gin.Context) {
 // TODO have this throw error?
 func handleRun(c *gin.Context) {
 	project := c.Param("project")
-	project = util.SanitizeProjectName(project)
 	task := c.Param("task")
 
 	// TODO check if app exists; if not, throw an error
+	
+
 	var runReq types.RunRequest
 	if err := c.BindJSON(&runReq); err != nil {
 		log.Error(err)
@@ -812,8 +776,6 @@ func handleRun(c *gin.Context) {
 
 	// get user id and project from the headers
 	userId := c.Request.Header.Get("userId")
-
-	task = util.SanitizeTaskName(task)
 
 	// serialize to json based on the type
 	byteSlice, err := json.Marshal(runReq.Parameters)

@@ -32,7 +32,8 @@ import (
 	urfaveCli "github.com/urfave/cli/v2"
 	"github.com/usecakework/cakework/lib/auth"
 	cwConfig "github.com/usecakework/cakework/lib/config"
-	fly "github.com/usecakework/cakework/lib/fly/cli"
+	flyUtil "github.com/usecakework/cakework/lib/fly"
+	flyCli "github.com/usecakework/cakework/lib/fly/cli"
 	"github.com/usecakework/cakework/lib/frontendclient"
 	cwHttp "github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/shell"
@@ -40,7 +41,6 @@ import (
 )
 
 // TODO put stuff into templates for different languages
-
 //go:embed fly.toml
 var flyConfig embed.FS
 
@@ -385,7 +385,7 @@ func main() {
 					}
 
 					FLY_ORG := viper.GetString("FLY_ORG")
-					fly := fly.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
+					fly := flyCli.New(dirname+"/.cakework/.fly/bin/fly", FLY_ACCESS_TOKEN, FLY_ORG)
 
 					if !isLoggedIn(*config) {
 						fmt.Println("Please signup (cakework signup) or log in (cakework login).")
@@ -437,16 +437,12 @@ func main() {
 						return cli.Exit("Failed to parse task name from main.py. Please make sure you're in the project directory!", 1)
 					}
 
-					// sanitize activity name and app name. in the future we don't need to do this anymore
-					appName = strings.ReplaceAll(strings.ToLower(appName), "_", "-")   // in the future, infer these from the code
-					taskName = strings.ReplaceAll(strings.ToLower(taskName), "_", "-") // in the future, infer these from the code
-
 					userId, err := getUserId(configFile)
 					if err != nil {
 						return fmt.Errorf("Failed to get user from cakework config: %w", err)
 					}
 
-					flyAppName := userId + "-" + appName + "-" + taskName
+					flyAppName := flyUtil.GetFlyAppName(userId, appName, taskName)
 
 					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
 					s.Start()                                                   // Start the spinner

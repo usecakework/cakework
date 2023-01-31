@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/usecakework/cakework/lib/auth"
-	fly "github.com/usecakework/cakework/lib/fly/cli"
+	fly "github.com/usecakework/cakework/lib/fly"
 	"github.com/usecakework/cakework/lib/http"
 	"github.com/usecakework/cakework/lib/types"
 )

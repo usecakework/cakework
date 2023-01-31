@@ -80,7 +80,7 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 		Config: Config{
 			Image: image,
 			Guest: Guest{
-				CPUKind: "shared", // Q: support dedicated?
+				CPUKind: "shared", // TODO: support dedicated as well
 				CPUs:    cpus,
 				Memory:  memory,
 			},
@@ -91,7 +91,6 @@ func (fly *Fly) NewMachine(flyApp string, name string, image string, cpus int, m
 		},
 	}
 
-	// TODO delete
 	// fmt.Printf("%+v\n", req)
 
 	res, err := http.CallV2(url, "POST", req, fly.CredentialsProvider)

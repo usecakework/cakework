@@ -1,7 +1,13 @@
 package fly
 
-import "github.com/usecakework/cakework/lib/util"
+import (
+	"strings"
+)
+
+func Sanitize(s string) string {
+	return strings.Replace(strings.ToLower(s), "_", "-", -1)
+}
 
 func GetFlyAppName(userId string, appName string, taskName string) string {
-	return util.SanitizeUserId(userId) + "-" + util.SanitizeAppName(appName) + "-" + util.SanitizeTaskName(taskName)
+	return Sanitize(userId) + "-" + Sanitize(appName) + "-" + Sanitize(taskName)
 }

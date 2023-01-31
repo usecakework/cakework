@@ -7,9 +7,9 @@ if __name__ == "__main__":
     with p.open('r') as f:
         CAKEWORK_CLIENT_TOKEN = f.readline().strip('\n')
 
-        client = Client("proj", CAKEWORK_CLIENT_TOKEN, local=False)
+        client = Client("REPLACE_APPNAME", CAKEWORK_CLIENT_TOKEN, local=False)
 
-        run_id = client.run("say-hello", {"name":"from Cakework"}, compute={})
+        run_id = client.run("say_hello", {"name":"from Cakework"}, compute={})
         print("Your run id is " + run_id)
         
         status = client.get_run_status(run_id)
