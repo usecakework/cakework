@@ -20,8 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 class Client:
     def __init__(self, project, client_token, local=False): # TODO: infer user id // TODO revert local back to False
-        # TODO get rid of "shared"
-        self.project = project.lower().replace('_', '-')
+        self.project = project
         self.client_token = client_token
 
         if local:
@@ -92,9 +91,6 @@ class Client:
             raise exceptions.CakeworkError("Internal server exception") 
     
     def run(self, task, params, compute ={"cpu":1, "memory": 256}):
-        sanitized_task = task.lower()
-        sanitized_task = task.replace('_', '-')
-
         request = {
             "parameters": params,
             "compute": {}
@@ -119,7 +115,13 @@ class Client:
             request["compute"]['memory'] = 256
     
         request["token"] = self.client_token
-        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{sanitized_task}/runs", json=request, params={"token": self.client_token})
+        response = requests.post(f"{self.frontend_url}/client/projects/{self.project}/tasks/{task}/runs", json=request, params={"token": self.client_token})
         response_json = response.json()
-        run_id = response_json["runId"] # this may be null?
-        return run_id
+        if response.status_code == 201:
+            run_id = response_json["runId"]
+            return run_id
+        elif response.status_code == 404:
+            raise exceptions.CakeworkError("Task " + task + " for project " + self.project + " not found. Have you tried running `cakework deploy` first?")  
+        else:
+            print(response) # TODO delete? 
+            raise exceptions.CakeworkError("Internal server exception")  

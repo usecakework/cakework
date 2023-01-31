@@ -75,6 +75,7 @@ func main() {
 
 	if stage == "dev" {
 		viper.SetConfigType("dotenv")
+		viper.SetConfigFile(".env")
 		err := viper.ReadInConfig()
 
 		if err != nil {
@@ -178,7 +179,7 @@ func checkErr(err error) {
 func runTask(js nats.JetStreamContext, req types.Run) error {
 	flyApp := flyUtil.GetFlyAppName(req.UserId, req.Project, req.Task)
 
-	image, err := GetLatestImage(flyApp, db)
+	image, err := flyUtil.GetLatestImage(flyApp, db)
 	if err != nil {
 		log.Error("Failed to get latest image to deploy")
 		return err

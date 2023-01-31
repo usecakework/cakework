@@ -15,7 +15,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 class Cakework:
 	def __init__(self, name, local=False): # TODO remove local when release as open source
-		self.name = name.lower().replace('_', '-')
+		self.name = name
 		self.local = local
 
 		logging.info("Created project with name: " + self.name)

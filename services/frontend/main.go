@@ -766,8 +766,6 @@ func handleRun(c *gin.Context) {
 	task := c.Param("task")
 
 	// TODO check if app exists; if not, throw an error
-	
-
 	var runReq types.RunRequest
 	if err := c.BindJSON(&runReq); err != nil {
 		log.Error(err)
@@ -776,6 +774,16 @@ func handleRun(c *gin.Context) {
 
 	// get user id and project from the headers
 	userId := c.Request.Header.Get("userId")
+	exists, err := fly.ImageExists(project, task, userId, db);
+	if err != nil {
+		log.Error(err)
+		return
+	} 
+
+	if !exists {
+		c.IndentedJSON(http.StatusNotFound, "Task " + task + " does not exist. Have you run `cakework deploy`?")
+		return
+	} 
 
 	// serialize to json based on the type
 	byteSlice, err := json.Marshal(runReq.Parameters)
