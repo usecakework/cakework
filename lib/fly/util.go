@@ -12,8 +12,8 @@ func Sanitize(s string) string {
 	return strings.Replace(strings.ToLower(s), "_", "-", -1)
 }
 
-func GetFlyAppName(userId string, appName string, taskName string) string {
-	return Sanitize(userId) + "-" + Sanitize(appName) + "-" + Sanitize(taskName)
+func GetFlyAppName(userId string, projectName string, taskName string) string {
+	return Sanitize(userId) + "-" + Sanitize(projectName) + "-" + Sanitize(taskName)
 }
 
 func GetLatestImage(flyApp string, db *sql.DB) (string, error) {

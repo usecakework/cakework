@@ -774,13 +774,14 @@ func handleRun(c *gin.Context) {
 
 	// get user id and project from the headers
 	userId := c.Request.Header.Get("userId")
-	exists, err := fly.ImageExists(project, task, userId, db);
+	exists, err := fly.ImageExists(userId, project, task, db);
 	if err != nil {
 		log.Error(err)
 		return
 	} 
 
 	if !exists {
+		log.Debug("task does not exist")
 		c.IndentedJSON(http.StatusNotFound, "Task " + task + " does not exist. Have you run `cakework deploy`?")
 		return
 	} 

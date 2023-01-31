@@ -406,7 +406,7 @@ func main() {
 					fileScanner.Split(bufio.ScanLines)
 
 					var rgxAppName = regexp.MustCompile(`\(\"([^)]+)\"\)`)
-					var appName string
+					var projectName string
 
 					var rgxTaskName = regexp.MustCompile(`\(([^)]+)\)`)
 					var taskName string
@@ -419,7 +419,7 @@ func main() {
 						if strings.Contains(line, "Cakework(") {
 							rs := rgxAppName.FindAllStringSubmatch(line, -1)
 							for _, i := range rs {
-								appName = i[1]
+								projectName = i[1]
 							}
 						}
 						if strings.Contains(line, "add_task") {
@@ -430,7 +430,7 @@ func main() {
 						}
 					}
 
-					if appName == "" {
+					if projectName == "" {
 						return errors.New("Failed to parse project name from main.py. Please make sure you're in the project directory!")
 					}
 					if taskName == "" {
@@ -442,7 +442,7 @@ func main() {
 						return fmt.Errorf("Failed to get user from cakework config: %w", err)
 					}
 
-					flyAppName := flyUtil.GetFlyAppName(userId, appName, taskName)
+					flyAppName := flyUtil.GetFlyAppName(userId, projectName, taskName)
 
 					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // Build our new spinner
 					s.Start()                                                   // Start the spinner
@@ -507,7 +507,7 @@ func main() {
 					frontendClient := frontendclient.New(FRONTEND_URL, credsProvider)
 
 					name := uuid.New().String() // generate a random string for the name
-					err = frontendClient.CreateMachine(userId, appName, taskName, name, machineId, state, image, "CLI")
+					err = frontendClient.CreateMachine(userId, projectName, taskName, name, machineId, state, image, "CLI")
 					if err != nil {
 						return errors.New("Failed to store deployed task in database\n" + fmt.Sprint(err))
 					}
