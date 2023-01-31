@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "react-example-backend"
+version = "0.1.0"
+description = ""
+authors = ["Eric Chen <eric@sahale.io>"]
+readme = "README.md"
+packages = [{include = "react_example_backend"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+cakework = "^0.0.54"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
