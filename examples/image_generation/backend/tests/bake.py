@@ -9,16 +9,16 @@ if __name__ == "__main__":
 
         client = Client("backend", CAKEWORK_CLIENT_TOKEN)
 
-        # You can persist this request ID to get status of the job later
-        request_id = client.say_hello("from Cakework")
-        print("Your request id is " + request_id)
+        # You can persist this run ID to get status of the job later
+        run_id = client.say_hello("from Cakework")
+        print("Your run id is " + run_id)
 
-        status = client.get_status(request_id)
+        status = client.get_status(run_id)
         while (status == "PENDING" or status == "IN_PROGRESS"):
             print("Still baking...!")
-            status = client.get_status(request_id)
+            status = client.get_status(run_id)
             time.sleep(1)
 
-        if (client.get_status(request_id) == "SUCCEEDED"):
-            result = client.get_result(request_id)
+        if (client.get_status(run_id) == "SUCCEEDED"):
+            result = client.get_result(run_id)
             print(result)

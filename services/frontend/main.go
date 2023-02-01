@@ -305,7 +305,7 @@ func getStatus(c *gin.Context) {
 	request, err := getRun(db, newGetStatusRequest.RunId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Error("no request with request id found")
+			log.Error("no run with run id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + newGetStatusRequest.RunId + " not found"})
 			return
 		} else {
@@ -721,7 +721,7 @@ func handleGetRunStatus(c *gin.Context) {
 	request, err := getRun(db, runId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info("no request with request id found")
+			log.Info("no run with request id found")
 			c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Run with run id " + runId + " not found"})
 			return
 		} else {

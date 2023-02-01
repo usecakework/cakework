@@ -1,16 +1,4 @@
-<script>
-$( 'pricebutton' ).on( 'click', function( event ) {
-  console.log( 'clicked', $( this ).text() );
-});
-</script>
-
 <script type="text/javascript" src="https://unpkg.com/@cakework/client-webpack@latest/dist/cakework.js"></script>
-
-<!-- Set autocomplete input -->
-<script>
-  var gpaInput = document.getElementById("gplacesauto");
-  var autocomplete = new google.maps.places.Autocomplete(gpaInput);
-</script>
 
 <script>
     async function run(address, year) {
@@ -41,7 +29,7 @@ $( 'pricebutton' ).on( 'click', function( event ) {
     return json;
   }
 
-  $('#addr-form').each(function (
+  $('#my-form').each(function (
     i,
     el
   ) {
@@ -52,7 +40,7 @@ $( 'pricebutton' ).on( 'click', function( event ) {
       var data = convertFormToJSON(form);
       var action = form.attr("action");
 
-      run(data['addr'], parseInt(data['year']))
+      run(data['name'])
         .then(result => {
             console.log("Got result: ")
             console.log(result); // TODO do something with the result

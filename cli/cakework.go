@@ -569,13 +569,13 @@ func main() {
 							}
 
 							if len(taskLogs.Runs) == 0 {
-								fmt.Println("No requests found. Check your Project name and Task name!")
+								fmt.Println("No runs found. Check your Project name and Task name!")
 								return nil
 							}
 
 							t := table.NewWriter()
 							t.SetOutputMirror(os.Stdout)
-							t.AppendHeader(table.Row{"Request Id", "Status", "Started", "Updated", "Parameters", "Result"})
+							t.AppendHeader(table.Row{"Run Id", "Status", "Started", "Updated", "Parameters", "Result"})
 							for _, request := range taskLogs.Runs {
 								t.AppendRow([]interface{}{
 									request.RunId,

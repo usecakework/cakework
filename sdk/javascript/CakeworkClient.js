@@ -10,19 +10,19 @@ class CakeworkClient {
     }
 
     async run(task, params, compute) {     
-        const request = {
+        const run = {
             token: this.token,     
             body: {}
         };
         if (params != undefined) {
-            request.body["parameters"] = params;
+            run.body["parameters"] = params;
         }
         if (compute != undefined) {
-            request.body["compute"] = params;
+            run.body["compute"] = params;
         }
 
-        const requestId = await this.client.client.run(this.project, task, request);
-        return requestId;
+        const runId = await this.client.client.run(this.project, task, run);
+        return runId;
     }
 
     async getRunStatus(runId) {        
