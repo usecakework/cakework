@@ -495,10 +495,12 @@ func main() {
 					}
 
 					machineId, state, image, err := fly.GetMachineInfo(out)
-					// fmt.Printf("%s %s %s", machineId, state, image)
+
 					if err != nil {
 						return errors.New("Failed to get info from fly machine")
 					}
+
+					log.Debugf("machineId: %s state: %s image: %s", machineId, state, image)
 
 					// make this a shared variable?
 					// how to make sure the tokens are up to date?
@@ -511,13 +513,6 @@ func main() {
 					if err != nil {
 						return errors.New("Failed to store deployed task in database\n" + fmt.Sprint(err))
 					}
-
-					out, err = fly.NewMachine(flyAppName, buildDirectory)
-					if err != nil {
-						return errors.New("Failed to deploy app to Fly machine")
-					}
-
-					log.Debugf("machineId: %s state: %s image: %s", machineId, state, image)
 
 					s.Stop()
 
