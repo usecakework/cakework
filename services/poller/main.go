@@ -129,6 +129,7 @@ func main() {
 		log.Error("Failed to open database connection")
 		log.Error(err)
 	}
+
 	db.SetConnMaxLifetime(time.Minute * 3)
 	db.SetMaxOpenConns(100)
 	db.SetMaxIdleConns(10)
@@ -143,11 +144,10 @@ func main() {
 }
 
 func poll(js nats.JetStreamContext) {
-	for {
-		// Q: should we be creating a new pullsubscribe each time?
-		sub, _ := js.PullSubscribe(subSubjectName, "submitted-tasks", nats.PullMaxWaiting(128))
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	sub, _ := js.PullSubscribe(subSubjectName, "submitted-tasks")
 
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		msgs, _ := sub.Fetch(10, nats.Context(ctx))
@@ -159,10 +159,10 @@ func poll(js nats.JetStreamContext) {
 			log.Infof("Got request: " + req.UserId + ", " + req.Project + ", " + req.Task + ", " + req.RunId)
 
 			if err != nil {
-				fmt.Println(err)
+				log.Error(err)
 			}
 			if err := runTask(js, req); err != nil { // TODO: handle error if RunTask throws an error
-				log.Debugf("Error while processing run: %+v\n", req)
+				log.Errorf("Error while processing run: %+v\n", req)
 				log.Error(err)
 			}
 		}
