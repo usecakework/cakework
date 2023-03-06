@@ -1,7 +1,0 @@
-name: api
-environments:
-  Production: https://cakework-frontend.fly.dev
-  Local: http://localhost:8080
-default-environment: Production
-error-discrimination:
-  strategy: status-code
