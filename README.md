@@ -10,6 +10,10 @@ Cakework makes it easy for dev tool teams to build custom serverless products in
 
 Check out the docs [here](https://docs.cakework.com/) to get started with Cakework.
 
+# Examples
+
+Coming soon!
+
 # Community
 
 Join the [Discord](https://discord.gg/yB6GvheDcP) or send us an [email](mailto:hi@cakework.com)!
