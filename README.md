@@ -4,7 +4,7 @@
 <img src="https://cakework-logo.s3.us-west-2.amazonaws.com/favicon.png" width="150">
 </div>
 
-Cakework makes it easy for dev tool teams to build custom serverless products instantly using APIs instead of infrastructure. Example uses range from SaaS tools offering native coding extensions to workflow automation companies fully running a cloud solution.
+Cakework is a set of simple APIs for building serverless directly into your developer product. You describe how you want to package and run your users' code, and use Cakework to build images from Github, CLI, or even a browser. You use our APIs to run that code securely, and show logs and metrics back to your users.
 
 # Documentation
 
